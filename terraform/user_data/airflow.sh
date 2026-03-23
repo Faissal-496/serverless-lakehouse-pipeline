@@ -29,9 +29,12 @@ SECRETS_MQ_ARN="${secrets_mq_arn}"
 SECRETS_AIRFLOW_ARN="${secrets_airflow_arn}"
 
 apt-get update -y
-apt-get install -y docker.io docker-compose-plugin git curl
+apt-get install -y docker.io git curl python3-pip
 systemctl enable --now docker
 usermod -aG docker ubuntu
+
+# Add user to docker group (wait a bit for service to be ready)
+sleep 2
 
 mkdir -p /opt/airflow /opt/airflow/logs /opt/airflow/plugins /opt/airflow/dags /opt/airflow/work /opt/lakehouse
 
