@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+env/
+
+# Spark
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Logs
+*.log
+logs/
+
+# Env
+.env
+
+# Data (à adapter selon ton projet)
+data/
+*.csv
+*.parquet
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Terraform (CRITIQUE)
+.terraform/
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfplan
+.terraform.lock.hcl
+
+# Secrets (CRITIQUE)
+les_credentials.txt
+
+# Tests locaux
+test_connectivity.py
+test_deployement.py
+
+# other files to ignore
+docs/*.md
+*.md

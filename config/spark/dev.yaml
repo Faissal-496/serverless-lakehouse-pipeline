@@ -1,0 +1,43 @@
+spark:
+  config:
+
+    # =========================
+    # 1. RESSOURCES (DEV)
+    # =========================
+    spark.driver.memory: 2g
+    spark.executor.memory: 2g
+    spark.executor.cores: 1
+
+    # =========================
+    # 2. PARALLÉLISME / SHUFFLE
+    # =========================
+    spark.sql.shuffle.partitions: 2
+    spark.default.parallelism: 2
+
+    # =========================
+    # 3. SERIALIZATION (BEST PRACTICE)
+    # =========================
+    spark.serializer: org.apache.spark.serializer.KryoSerializer
+
+    # =========================
+    # 4. S3 / HADOOP S3A
+    # =========================
+    spark.hadoop.fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+    spark.hadoop.fs.s3a.aws.credentials.provider: com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+    spark.hadoop.fs.s3a.path.style.access: true
+
+    # =========================
+    # 5. STABILITÉ / NETWORK
+    # =========================
+    spark.network.timeout: 600s
+    spark.executor.heartbeatInterval: 60s
+
+    # =========================
+    # 6. SQL / TIMEZONE
+    # =========================
+    spark.sql.session.timeZone: UTC
+
+    # =========================
+    # 7. LOGGING (DEV FRIENDLY)
+    # =========================
+    spark.sql.debug.maxToStringFields: 50

@@ -1,0 +1,11 @@
+configuration-as-code
+workflow-aggregator
+pipeline-model-definition
+git
+github
+credentials-binding
+matrix-auth
+docker-workflow
+aws-credentials
+amazon-ecr
+job-dsl

@@ -1,0 +1,67 @@
+version: "1.0"
+namespace: "lakehouse.assurance"
+
+dataset: "client"
+description: "Customer Master Data - Demographics and profile information"
+
+layer: "bronze"
+update_frequency: "daily"
+owner: "data-platform"
+
+schema:
+  version: "1.0"
+  fields:
+    - name: "nusoc"
+      type: "int"
+      nullable: false
+      description: "Unique customer ID"
+    
+    - name: "sexsoc"
+      type: "string"
+      nullable: true
+      description: "Gender: 1=Male, 2=Female, 3=Legal entity"
+    
+    - name: "aadhso"
+      type: "int"
+      nullable: true
+      description: "Birth year"
+    
+    - name: "cspsoc"
+      type: "string"
+      nullable: true
+      description: "Socio-professional category"
+    
+    - name: "sitmat"
+      type: "string"
+      nullable: true
+      description: "Marital status"
+    
+    - name: "sitpav1"
+      type: "string"
+      nullable: true
+      description: "Housing status"
+    
+    - name: "nbenf"
+      type: "int"
+      nullable: true
+      description: "Number of children"
+
+quality_rules:
+  - rule: "not_null"
+    columns: ["nusoc"]
+    severity: "error"
+  
+  - rule: "no_duplicates"
+    columns: ["nusoc"]
+    severity: "error"
+  
+  - rule: "value_range"
+    column: "aadhso"
+    min: 1900
+    max: 2025
+    severity: "warning"
+
+sla:
+  data_freshness_hours: 24
+  availability_percentage: 99.5
+  max_rows: 2000000

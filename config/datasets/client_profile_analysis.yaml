@@ -1,0 +1,71 @@
+version: "1.0"
+namespace: "lakehouse.assurance"
+
+dataset: "client_profile_analysis"
+description: "Gold layer - Client demographic segmentation and profiling for analytics"
+
+layer: "gold"
+update_frequency: "daily"
+owner: "data-platform"
+
+upstream_datasets:
+  - "client_contrat_silver"
+
+schema:
+  version: "1.0"
+  fields:
+    - name: "nusoc"
+      type: "int"
+      nullable: false
+      description: "Unique customer ID"
+    
+    - name: "age_client"
+      type: "int"
+      nullable: true
+      description: "Age of customer (calculated from birth year)"
+    
+    - name: "client_jeune"
+      type: "int"
+      nullable: true
+      description: "Indicator: 1=young customer (<30), 0=otherwise"
+    
+    - name: "sexsoc"
+      type: "string"
+      nullable: true
+      description: "Gender (1=Male, 2=Female, 3=Corporate)"
+    
+    - name: "cspsoc"
+      type: "string"
+      nullable: true
+      description: "Socio-professional category"
+    
+    - name: "sitmat"
+      type: "string"
+      nullable: true
+      description: "Marital status"
+    
+    - name: "sitpav1"
+      type: "string"
+      nullable: true
+      description: "Housing type (pavilion status)"
+    
+    - name: "age_segment"
+      type: "string"
+      nullable: true
+      description: "Age segment (18-24, 25-34, 35-44, 45-54, 55-64, 65+)"
+
+partitioning:
+  - column: "year"
+    type: "int"
+  - column: "month"
+    type: "int"
+  - column: "day"
+    type: "int"
+
+quality_metrics:
+  - metric: "total_unique_clients"
+    description: "Count of distinct customers"
+  - metric: "young_customer_percentage"
+    description: "Percentage of customers under 30 years old"
+  - metric: "gender_distribution"
+    description: "Distribution by gender"

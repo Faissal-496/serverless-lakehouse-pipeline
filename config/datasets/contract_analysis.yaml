@@ -1,0 +1,83 @@
+version: "1.0"
+namespace: "lakehouse.assurance"
+
+dataset: "contract_analysis"
+description: "Gold layer - Contract metrics, premiums, and guarantee coverage analysis"
+
+layer: "gold"
+update_frequency: "daily"
+owner: "data-platform"
+
+upstream_datasets:
+  - "client_contrat_silver"
+
+schema:
+  version: "1.0"
+  fields:
+    - name: "etatco"
+      type: "string"
+      nullable: true
+      description: "Contract state (Annulé, En cours, Suspendu, etc.)"
+    
+    - name: "nb_contrats"
+      type: "long"
+      nullable: false
+      description: "Number of contracts in this state"
+    
+    - name: "avg_premium"
+      type: "double"
+      nullable: true
+      description: "Average premium for contracts in this state"
+    
+    - name: "total_premium"
+      type: "double"
+      nullable: true
+      description: "Total premium for contracts in this state"
+    
+    - name: "cateco"
+      type: "string"
+      nullable: true
+      description: "Vehicle category (A=Auto, M=Motorcycle, C=Cyclo)"
+    
+    - name: "usagco1"
+      type: "int"
+      nullable: true
+      description: "Primary usage (0=Commute, 1=Leisure, 3=Professional)"
+    
+    - name: "nb_garanties"
+      type: "int"
+      nullable: true
+      description: "Number of guarantees/coverage options"
+    
+    - name: "avg_guarantees"
+      type: "double"
+      nullable: true
+      description: "Average number of guarantees per contract"
+    
+    - name: "min_premium"
+      type: "double"
+      nullable: true
+      description: "Minimum premium"
+    
+    - name: "max_premium"
+      type: "double"
+      nullable: true
+      description: "Maximum premium"
+
+partitioning:
+  - column: "year"
+    type: "int"
+  - column: "month"
+    type: "int"
+  - column: "day"
+    type: "int"
+
+quality_metrics:
+  - metric: "contract_by_state"
+    description: "Distribution of contracts by state"
+  - metric: "premium_statistics"
+    description: "Premium avg/min/max statistics"
+  - metric: "vehicle_category_breakdown"
+    description: "Breakdown by vehicle type"
+  - metric: "guarantee_penetration"
+    description: "Coverage and guarantee distribution"

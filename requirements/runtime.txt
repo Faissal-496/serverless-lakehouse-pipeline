@@ -1,0 +1,23 @@
+# Runtime Requirements
+pyspark==3.5.0
+pandas==2.1.4
+numpy==1.24.3
+
+# Data Quality & Validation
+great-expectations==0.18.12
+pandera==0.17.2
+
+# AWS Integration
+boto3==1.28.85
+s3fs==2023.12.1
+pyarrow==14.0.1
+
+# Utilities
+python-dotenv==1.0.0
+pyyaml==6.0.1
+requests==2.31.0
+tenacity==8.2.3
+
+# Logging & Monitoring
+python-json-logger==2.0.7
+prometheus-client==0.19.0

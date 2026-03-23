@@ -1,0 +1,201 @@
+# ============================================================================
+# TERRAFORM VALUES - LAKEHOUSE ENTERPRISE PLATFORM
+# ============================================================================
+#
+# This file contains environment-specific values for Terraform.
+# Copy this to terraform.tfvars and fill in your values.
+#
+# IMPORTANT: Never commit .tfvars files with real credentials to version control
+# Use AWS Secrets Manager or environment variables instead.
+#
+# Usage:
+#   cp terraform.tfvars.example terraform.tfvars
+#   # Edit terraform.tfvars with your values
+#   terraform apply -var-file="terraform.tfvars"
+#
+
+# ============================================================================
+# DEPLOYMENT ENVIRONMENT
+# ============================================================================
+
+aws_region  = "eu-west-3"
+environment = "dev"  # Change to "staging" or "prod" for other environments
+project_name = "lakehouse-assurance"
+cost_center  = "insurance-analytics"
+
+# ============================================================================
+# NETWORKING
+# ============================================================================
+
+vpc_cidr             = "10.0.0.0/16"
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
+
+# NAT required for private instances to reach GitHub/ECR
+enable_nat_gateway = true
+
+# Lock down these CIDRs to your IP for security
+allowed_ingress_cidr_blocks = ["0.0.0.0/0"]
+ssh_cidr_blocks             = []
+
+# ============================================================================
+# EC2 COMPUTE (Airflow/Jenkins)
+# ============================================================================
+
+ec2_instance_type       = "t3.micro"
+ec2_key_name            = ""
+airflow_scheduler_count = 2
+airflow_worker_desired  = 2
+airflow_worker_min      = 1
+airflow_worker_max      = 4
+jenkins_controller_count = 2
+jenkins_agent_count     = 4
+
+# Jenkins admin (used by JCasC on first start)
+jenkins_admin_user      = "admin"
+jenkins_admin_password  = "CHANGE_ME_STRONG_PASSWORD"
+
+# ============================================================================
+# S3 DATA LAKE
+# ============================================================================
+
+# IMPORTANT: S3 bucket names must be globally unique across AWS
+# Use format: your-company-lakehouse-DATA-REGION
+# Example: acmecorp-lakehouse-prod-eunorth1
+s3_bucket_name = "lakehouse-assurance-moto-prod"
+
+# Lifecycle policies reduce costs by moving old data to cheaper storage
+s3_lifecycle_days_to_ia      = 30   # Move to Intelligent-Tiering after 30 days
+s3_lifecycle_days_to_glacier = 180  # Move to Glacier after 180 days
+s3_enable_versioning         = true
+s3_enable_encryption         = true
+s3_enable_access_logging     = true
+
+# ============================================================================
+# RDS POSTGRESQL
+# ============================================================================
+
+# Instance Type Selection (by workload):
+#   Development:  db.t3.micro (1 vCPU, 1GB RAM) - min cost
+#   Staging:      db.t3.small (2 vCPU, 2GB RAM) - testing
+#   Production:   db.t3.medium (2 vCPU, 4GB RAM) - recommended minimum
+#   Large-scale:  db.r5.large+ (higher memory for peak loads)
+rds_instance_class = "db.t3.micro"
+
+# Storage sizing:
+#   Each Airflow DAG run = ~100KB metadata
+#   + Lakehouse state/lineage metadata = ~1MB per transformation
+#   Conservative: 100GB is typically sufficient for 6-12 months
+rds_allocated_storage     = 20    # Initial storage (GB)
+rds_max_allocated_storage = 100   # Auto-scale limit (GB)
+
+# Backup retention (days): Enterprise standard is 30 days minimum
+rds_backup_retention_days = 7
+
+# Multi-AZ: Enables automatic failover if primary fails
+#   Cost: +50% RDS cost, but near-zero downtime
+#   Recommended: true for production
+rds_multi_az = false
+rds_force_ssl = true
+
+# PostgreSQL version (use stable releases)
+rds_engine_version = "15.3"
+
+# Database name (for Airflow metadata + app state)
+rds_database_name = "lakehouse_prod"
+
+# CRITICAL: Generate strong password
+# Requirements: Min 8 chars, must include uppercase, lowercase, number, special char
+# Generate with: openssl rand -base64 32
+# Example: TpXk2m#nQ9vL$zB7wEr@8fDc!
+rds_master_username = "lakehouse_admin"
+rds_master_password = "CHANGE_ME_TO_STRONG_PASSWORD_32_CHARS_MIN"  # ⚠️ CHANGE THIS!
+
+# ============================================================================
+# CLOUDWATCH LOGGING
+# ============================================================================
+
+# Log retention (days): 90 is industry standard for most workloads
+#   7 days:  minimum (quick cost saving)
+#   30 days: short-term debugging
+#   90 days: recommended (compliance + troubleshooting)
+#   1+ year: required for regulated industries (insurance, healthcare)
+cloudwatch_log_retention_days = 90
+
+# Email for CloudWatch alarms (job failures, data quality issues)
+cloudwatch_alarm_email = "data-platform-alerts@company.com"
+cloudwatch_enable_dashboards = false
+
+# ============================================================================
+# ALB HTTPS / TLS
+# ============================================================================
+
+# ACM certificate ARN for HTTPS listener
+alb_certificate_arn = "arn:aws:acm:eu-west-3:123456789012:certificate/REPLACE_ME"
+
+# ============================================================================
+# AMAZON MQ (RabbitMQ)
+# ============================================================================
+
+# NOTE: Verify supported engine versions in your AWS region.
+mq_engine_version  = "3.11.20"
+mq_instance_type   = "mq.t3.micro"
+mq_deployment_mode = "SINGLE_INSTANCE"
+mq_username        = "airflow"
+mq_password        = "CHANGE_ME_STRONG_PASSWORD"
+
+# ============================================================================
+# SECRETS MANAGER (OPTIONAL)
+# ============================================================================
+
+enable_secrets_manager = false
+
+# ============================================================================
+# ECR (Container Images)
+# ============================================================================
+
+ecr_repository_names = [
+  "airflow-runtime",
+  "spark-runtime",
+  "jenkins-agent",
+  "lakehouse-base"
+]
+
+# ============================================================================
+# AIRFLOW RUNTIME (GITSYNC + IMAGE TAGGING)
+# ============================================================================
+
+airflow_ecr_repo   = "airflow-runtime"
+airflow_image_tag  = "REPLACE_WITH_JENKINS_SHORT_SHA"
+airflow_dags_repo  = "https://github.com/Faissal-496/serverless-lakehouse-pipeline.git"
+airflow_dags_branch = "main"
+
+# Generate Fernet key: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\"
+airflow_fernet_key = "CHANGE_ME_FERNET_KEY"
+
+# Random 32+ chars for session security
+airflow_webserver_secret_key = "CHANGE_ME_WEBSERVER_SECRET_KEY"
+
+# ============================================================================
+# GLUE CATALOG
+# ============================================================================
+
+glue_catalog_database_name = "lakehouse"
+
+# ============================================================================
+# TAGS (for billing, compliance, automation)
+# ============================================================================
+
+tags = {
+  Environment  = "development"
+  ManagedBy    = "Terraform"
+  Project      = "lakehouse-assurance"
+  CostCenter   = "insurance-analytics"
+  Owner        = "data-platform-team"
+  Confidential  = "yes"  # For compliance masking
+}
+
+additional_tags = {
+  BackupRequired   = "true"
+  DisasterRecovery = "single-region"  # Change to "multi-region" for prod
+}

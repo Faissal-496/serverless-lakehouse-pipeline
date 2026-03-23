@@ -1,0 +1,25 @@
+jenkins:
+  systemMessage: "Lakehouse CI/CD - Jenkins Controller"
+  numExecutors: 0
+  mode: NORMAL
+  disableRememberMe: false
+  remotingSecurity:
+    enabled: true
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_USER:-admin}"
+          password: "${JENKINS_ADMIN_PASSWORD:-admin}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+unclassified:
+  location:
+    url: "${JENKINS_URL:-http://jenkins.local:8080}"
+    adminAddress: "devops@company.com"
+
+security:
+  globalJobDslSecurityConfiguration:
+    useScriptSecurity: true

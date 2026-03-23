@@ -1,0 +1,221 @@
+# ============================================================================
+# TERRAFORM VARIABLES - DEVELOPMENT ENVIRONMENT
+# ============================================================================
+#
+# This file defines all Terraform variables for DEV environment deployment
+# on AWS Free Tier.
+#
+# Copy this to: terraform/envs/dev/terraform.tfvars
+#
+# ============================================================================
+
+# ============================================================================
+# 1. PROJECT IDENTITY
+# ============================================================================
+project_name        = "lakehouse-assurance-moto"
+environment         = "dev"
+aws_region          = "eu-west-3"  # Fixed: was eu-north-1 in bootstrap
+
+# ============================================================================
+# 2. NETWORK CONFIGURATION
+# ============================================================================
+vpc_cidr            = "10.0.0.0/16"
+private_subnet_cidr = "10.0.1.0/24"
+public_subnet_cidr  = "10.0.0.0/24"
+availability_zones  = ["eu-west-3a", "eu-west-3b"]
+
+# ============================================================================
+# 3. COMPUTE INSTANCES (FREE TIER OPTIMIZED - t3.micro only!)
+# ============================================================================
+ec2_instance_type            = "t3.micro"
+ec2_instance_type_airflow    = "t3.micro"
+ec2_instance_type_jenkins    = "t3.micro"
+ec2_instance_type_worker     = "t3.micro"
+ec2_key_name                 = "lakehouse-dev"  # Must be created: aws ec2 create-key-pair --key-name lakehouse-dev
+ec2_root_volume_size         = 30  # GB (within free tier)
+ec2_root_volume_type         = "gp3"
+
+# ============================================================================
+# 4. RDS POSTGRESQL (FREE TIER - 750 hours/month)
+# ============================================================================
+rds_engine                   = "postgres"
+rds_engine_version           = "15.0"
+rds_instance_class           = "db.t3.micro"  # FREE TIER ONLY
+rds_allocated_storage        = 20  # GB (free tier limit)
+rds_multi_az                 = false  # FREE TIER: No Multi-AZ
+rds_backup_retention_days    = 7
+rds_username                 = "airflow_user"
+rds_database_name            = "airflow"
+# RDS_PASSWORD: Store in AWS Secrets Manager, not here!
+# aws secretsmanager create-secret --name lakehouse/rds/admin-password --secret-string "..."
+
+# ============================================================================
+# 5. S3 DATA LAKE CONFIGURATION
+# ============================================================================
+s3_bucket_name               = "lakehouse-assurance-moto-dev"
+s3_enable_versioning         = true
+s3_enable_encryption         = true
+s3_encryption_type           = "SSE_S3"  # Free - use SSE_S3, not KMS
+s3_expiration_days_archive   = 90
+s3_enable_lifecycle_rules     = true
+
+# ============================================================================
+# 6. AIRFLOW CONFIGURATION
+# ============================================================================
+airflow_version              = "2.7.3"
+airflow_home                 = "/opt/airflow"
+airflow_executor             = "LocalExecutor"  # Changed from CeleryExecutor for FREE TIER!
+airflow_workers              = 1  # Single worker for free tier
+airflow_parallelism          = 2
+airflow_max_active_tasks     = 2
+airflow_scheduler_catchup    = false
+airflow_load_examples        = false
+
+# Git Sync Configuration
+git_sync_enabled             = true
+git_sync_repo                = "https://github.com/Faissal-496/serverless-lakehouse-pipeline.git"
+git_sync_branch              = "main"
+git_sync_interval            = 300  # seconds
+
+# ============================================================================
+# 7. JENKINS CONFIGURATION
+# ============================================================================
+jenkins_admin_user           = "admin"
+jenkins_version              = "lts"
+jenkins_plugins              = ["configuration-as-code", "workflow-aggregator", "pipeline-model-definition", "git", "docker-workflow", "aws-credentials", "amazon-ecr"]
+jenkins_casc_enabled         = true
+
+# ============================================================================
+# 8. GLUE CATALOG CONFIGURATION
+# ============================================================================
+glue_enabled                 = true
+glue_catalog_database_name   = "lakehouse_assurance_moto_catalog"
+glue_crawlers_enabled        = false  # DISABLED - Cost optimization ($15/month savings)
+
+# ============================================================================
+# 9. CLOUDWATCH CONFIGURATION (Log Cost Optimization)
+# ============================================================================
+cloudwatch_enabled           = true
+cloudwatch_retention_days    = 7  # Reduced from 90 days (saves ~$5/month)
+cloudwatch_log_group_airflow = "/aws/lakehouse/airflow"
+cloudwatch_log_group_spark   = "/aws/lakehouse/spark"
+
+# ============================================================================
+# 10. SPARK CONFIGURATION (Free Tier Optimized)
+# ============================================================================
+spark_version                = "3.5.0"
+spark_driver_memory          = "1g"   # Reduced from 2g
+spark_executor_memory        = "1g"   # Reduced from 2g
+spark_executor_cores         = 1      # Reduced from 2
+spark_dynamic_allocation     = false
+
+# ============================================================================
+# 11. RESOURCE TAGGING
+# ============================================================================
+common_tags = {
+  Owner          = "faissal_2"
+  Team           = "data-engineering"
+  Environment    = "dev"
+  Project        = "lakehouse"
+  CostCenter     = "free-tier-testing"
+  ManagedBy      = "Terraform"
+  CreatedDate    = "2026-03-22"
+}
+
+# ============================================================================
+# 12. FEATURE FLAGS (Cost Optimization)
+# ============================================================================
+enable_alb                   = true   # Needed for Jenkins/Airflow UI
+enable_efs                   = true   # Needed for Jenkins HA
+enable_mq                    = false  # DISABLED - RabbitMQ costs extra
+enable_rds_monitoring        = true
+enable_detailed_monitoring   = false  # CloudWatch detailed monitoring extra cost
+enable_secrets_manager       = true   # Store passwords (costs $0.40/secret/month)
+
+# ============================================================================
+# 13. BACKUP & DISASTER RECOVERY (Cost Optimized)
+# ============================================================================
+rds_backup_retention_days    = 7      # Reduced from 35 days
+enable_standby_database      = false  # No MULTI-AZ (free tier)
+enable_cross_region_backup   = false  # No cross-region
+
+# ============================================================================
+# 14. AUTOSCALING POLICIES (Disabled for Free Tier)
+# ============================================================================
+enable_asg                   = false  # Auto-scaling groups = extra cost
+enable_alb_auto_scaling      = false
+
+# ============================================================================
+# 15. ESTIMATED MONTHLY COSTS
+# ============================================================================
+#
+# Service                    Free Tier              Estimated Cost
+# ────────────────────────────────────────────────────────────────
+# EC2 (t3.micro)             750 hours/month        FREE ✓
+# RDS PostgreSQL (t3.micro)  750 hours/month        FREE ✓
+# S3 Storage                 5 GB free              ~$0.12 (20 GB)
+# S3 Data Transfer           OUT to internet        ~$0.50
+# CloudWatch Logs             7 day retention        ~$0.50 (was $5 w/ 90 days)
+# Secrets Manager            -                      ~$0.40/secret
+# ────────────────────────────────────────────────────────────────
+# TOTAL ESTIMATED            -                      ~$1.50/month
+# FREE TIER CREDIT           -                      $68.00
+# ────────────────────────────────────────────────────────────────
+#
+# You can safely test this configuration for ~45 months on free tier!
+#
+# ⚠️  COST REDUCTION MEASURES APPLIED:
+# ✅ CloudWatch retention: 7 days (was 90 days) → saves ~$5/month
+# ✅ Glue crawlers disabled → saves ~$15/month
+# ✅ Airflow: LocalExecutor (no RabbitMQ) → saves ~$10/month
+# ✅ Instance types: t3.micro only (free tier) → saves ~$20/month
+# ✅ Multi-AZ disabled → saves ~$15/month
+# ✅ Detailed monitoring disabled → saves ~$3/month
+#
+# ============================================================================
+
+# ============================================================================
+# 16. DEPLOYMENT CHECKLIST
+# ============================================================================
+#
+# Before running 'terraform apply':
+#
+# [ ] AWS CLI configured: aws sts get-caller-identity
+# [ ] EC2 key pair created: aws ec2 create-key-pair --key-name lakehouse-dev
+# [ ] .env file secured (not in Git)
+# [ ] Terraform backend initialized (bootstrap completed ✓)
+# [ ] VPC and subnet IDs noted
+# [ ] Security group rules reviewed
+# [ ] Free tier limits acknowledged
+# [ ] Cost alert configured in AWS Billing
+#
+# ============================================================================
+
+# ============================================================================
+# 17. USAGE INSTRUCTIONS
+# ============================================================================
+#
+# 1. Validate configuration:
+#    terraform validate
+#
+# 2. Create infrastructure plan:
+#    terraform plan -var-file=terraform.tfvars -out=tfplan
+#
+# 3. Review plan carefully (should show ~45 resources)
+#
+# 4. Apply the plan:
+#    terraform apply tfplan
+#
+# 5. Wait for completion (~10-15 minutes)
+#
+# 6. Retrieve outputs:
+#    terraform output
+#
+# 7. Access services:
+#    - Jenkins: http://<ALB_DNS>:8080
+#    - Airflow: http://<ALB_DNS>:8080 (port TBD)
+#
+# 8. Monitor costs:
+#    https://console.aws.amazon.com/billing/
+#
+# ============================================================================
