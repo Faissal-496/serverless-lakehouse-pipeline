@@ -29,7 +29,7 @@ SECRETS_MQ_ARN="${secrets_mq_arn}"
 SECRETS_AIRFLOW_ARN="${secrets_airflow_arn}"
 
 apt-get update -y
-apt-get install -y docker.io git curl python3-pip
+apt-get install -y docker.io git curl python3-pip awscli
 systemctl enable --now docker
 usermod -aG docker ubuntu
 
