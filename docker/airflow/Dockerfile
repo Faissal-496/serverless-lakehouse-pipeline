@@ -22,15 +22,10 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Create necessary directories
-RUN mkdir -p $AIRFLOW_HOME/dags $AIRFLOW_HOME/plugins $AIRFLOW_HOME/logs && \
-    chown -R airflow:airflow $AIRFLOW_HOME
+# Create necessary directories as root
+RUN mkdir -p $AIRFLOW_HOME/dags $AIRFLOW_HOME/plugins $AIRFLOW_HOME/logs
 
-# Copy entrypoint if it exists, without failing
-COPY --chown=airflow:airflow docker/airflow/entrypoint.sh /entrypoint.sh || true
-RUN chmod +x /entrypoint.sh || true
-
-# Return to airflow user
+# Return to airflow user (will have proper permissions from base image)
 USER airflow
 
 # Health check

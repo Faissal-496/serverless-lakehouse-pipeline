@@ -3,7 +3,7 @@
 # Spark 3.5.0 + S3A + Python ETL Pipeline
 # ============================================================================
 
-FROM apache/spark:3.5.0 AS base
+FROM apache/spark:3.5.0
 
 LABEL maintainer="Lakehouse Engineering" \
       version="1.0.0" \
@@ -12,38 +12,22 @@ LABEL maintainer="Lakehouse Engineering" \
 USER root
 
 # ============================================================================
-# ENVIRONMENT & PATHS
+# BASIC DEPENDENCIES ONLY (skip pip to avoid Python version conflicts)
 # ============================================================================
-ENV SPARK_HOME=/opt/spark \
-    HOME=/home/spark \
-    PATH=$SPARK_HOME/bin:/home/spark/.local/bin:$PATH \
-    PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
-
-WORKDIR /opt/lakehouse
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # ============================================================================
-# DEPENDENCIES & PYTHON PACKAGES (minimal - skip heavy deps)
+# S3A CONFIGURATION (Spark handles boto3 internally)
 # ============================================================================
-RUN pip install --upgrade pip setuptools && \
-    pip install --no-cache-dir \
-        boto3 \
-        pandas \
-        numpy \
-        requests \
-        pyyaml \
-        python-dotenv
-
-# ============================================================================
-# S3A CONNECTORS & CONFIGURATION
-# ============================================================================
-RUN mkdir -p /opt/spark/conf /home/spark/.ivy2/{cache,jars} && \
-    chown -R spark:spark /home/spark /opt/spark/conf /opt/spark/jars && \
-    chmod -R 755 /opt/spark/jars
 
 # Spark configuration for S3A
-RUN printf '%s\n' \
+RUN mkdir -p /opt/spark/conf && \
+    printf '%s\n' \
     'spark.hadoop.fs.s3a.impl org.apache.hadoop.fs.s3a.S3AFileSystem' \
     'spark.hadoop.fs.s3a.aws.credentials.provider com.amazonaws.auth.DefaultAWSCredentialsProviderChain' \
     'spark.sql.shuffle.partitions 200' \
@@ -53,17 +37,17 @@ RUN printf '%s\n' \
     > /opt/spark/conf/spark-defaults.conf && \
     chmod 644 /opt/spark/conf/spark-defaults.conf
 
-# ============================================================================
-# HEALTH CHECK
-# ============================================================================
-COPY docker/healthcheck.py /opt/lakehouse/healthcheck.py
-RUN chmod +x /opt/lakehouse/healthcheck.py
+# Set Spark home
+ENV SPARK_HOME=/opt/spark \
+    PATH=$SPARK_HOME/bin:$PATH
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python3 /opt/lakehouse/healthcheck.py || exit 1
+WORKDIR /opt/lakehouse
 
-# ============================================================================
-# RUNTIME USER
-# ============================================================================
 USER spark
-CMD ["tail", "-f", "/dev/null"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD pgrep -f "org.apache.spark.deploy.SparkSubmit" > /dev/null || exit 1
+
+# Default command
+CMD ["spark-shell"]
