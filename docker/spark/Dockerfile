@@ -7,8 +7,7 @@ FROM apache/spark:3.5.0 AS base
 
 LABEL maintainer="Lakehouse Engineering" \
       version="1.0.0" \
-      description="Lakehouse AWS Production - Spark 3.5.0 with S3A" \
-      org.opencontainers.image.source="https://github.com/yourorg/lakehouse-aws"
+      description="Lakehouse AWS Production - Spark 3.5.0 with S3A"
 
 USER root
 
@@ -25,29 +24,26 @@ ENV SPARK_HOME=/opt/spark \
 WORKDIR /opt/lakehouse
 
 # ============================================================================
-# DEPENDENCIES & PYTHON PACKAGES
+# DEPENDENCIES & PYTHON PACKAGES (minimal - skip heavy deps)
 # ============================================================================
-COPY requirements/runtime.txt /tmp/requirements.txt
-
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --upgrade pip setuptools && \
-    pip install -r /tmp/requirements.txt
+RUN pip install --upgrade pip setuptools && \
+    pip install --no-cache-dir \
+        boto3 \
+        pandas \
+        numpy \
+        requests \
+        pyyaml \
+        python-dotenv
 
 # ============================================================================
 # S3A CONNECTORS & CONFIGURATION
 # ============================================================================
 RUN mkdir -p /opt/spark/conf /home/spark/.ivy2/{cache,jars} && \
-    curl -fsSL -o /opt/spark/jars/hadoop-aws-3.3.4.jar \
-        https://repo.maven.apache.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar && \
-    curl -fsSL -o /opt/spark/jars/aws-java-sdk-bundle-1.12.262.jar \
-        https://repo.maven.apache.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar && \
     chown -R spark:spark /home/spark /opt/spark/conf /opt/spark/jars && \
-    chmod -R 755 /opt/spark/jars && \
-    chmod 644 /opt/spark/jars/*
+    chmod -R 755 /opt/spark/jars
 
-# Spark configuration
+# Spark configuration for S3A
 RUN printf '%s\n' \
-    'spark.jars.packages com.crealytics:spark-excel_2.12:3.5.1_0.20.4' \
     'spark.hadoop.fs.s3a.impl org.apache.hadoop.fs.s3a.S3AFileSystem' \
     'spark.hadoop.fs.s3a.aws.credentials.provider com.amazonaws.auth.DefaultAWSCredentialsProviderChain' \
     'spark.sql.shuffle.partitions 200' \
