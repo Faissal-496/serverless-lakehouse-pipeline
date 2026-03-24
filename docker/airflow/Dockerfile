@@ -23,7 +23,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy entrypoint script
-COPY entrypoint.sh /entrypoint.sh
+COPY docker/airflow/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Create necessary directories as root
