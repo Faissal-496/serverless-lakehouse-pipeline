@@ -76,8 +76,8 @@ services:
       
       # Core Configuration
       AIRFLOW_HOME: /opt/airflow
-      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags/repo/orchestration/airflow/dags
-      AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/dags/repo/orchestration/airflow/plugins
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/plugins
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       
       # Database Configuration (SQLite for local dev)
@@ -101,17 +101,20 @@ services:
       AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
       
       # Python Path
-      PYTHONPATH: /opt/airflow/dags/repo/src
+      PYTHONPATH: /opt/airflow/src
       
       # Application Configuration
-      CONFIG_DIR: /opt/airflow/dags/repo/config
+      CONFIG_DIR: /opt/airflow/config
       APP_ENV: dev
       S3_BUCKET: lakehouse-assurance-dev
       GLUE_DB_NAME: lakehouse_assurance_dev
     ports:
       - "8080:8080"
     volumes:
-      - airflow_dags:/opt/airflow/dags
+      - airflow_home:/opt/airflow
+      - ./orchestration/airflow/dags:/opt/airflow/dags
+      - ./orchestration/airflow/plugins:/opt/airflow/plugins
+      - ./src:/opt/airflow/src:ro
       - airflow_logs:/opt/airflow/logs
     networks:
       - lakehouse-network
@@ -143,8 +146,8 @@ services:
     environment:
       # Core Configuration
       AIRFLOW_HOME: /opt/airflow
-      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags/repo/orchestration/airflow/dags
-      AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/dags/repo/orchestration/airflow/plugins
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/plugins
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       
       # Database Configuration (SQLite for local dev)
@@ -170,15 +173,19 @@ services:
       AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
       
       # Python Path
-      PYTHONPATH: /opt/airflow/dags/repo/src
+      PYTHONPATH: /opt/airflow/src
       
       # Application Configuration
-      CONFIG_DIR: /opt/airflow/dags/repo/config
+      CONFIG_DIR: /opt/airflow/config
       APP_ENV: dev
       S3_BUCKET: lakehouse-assurance-dev
       GLUE_DB_NAME: lakehouse_assurance_dev
     volumes:
-      - airflow_dags:/opt/airflow/dags
+      - airflow_home:/opt/airflow
+      - ./orchestration/airflow/dags:/opt/airflow/dags
+      - ./orchestration/airflow/plugins:/opt/airflow/plugins
+      - ./src:/opt/airflow/src:ro
+      - ./config:/opt/airflow/config:ro
       - airflow_logs:/opt/airflow/logs
     networks:
       - lakehouse-network
@@ -188,6 +195,7 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
+    # Note: No healthcheck for scheduler (doesn't expose HTTP API like webserver)
     command: scheduler
 
   # ============================================================================
@@ -307,6 +315,7 @@ networks:
     driver: bridge
 
 volumes:
+  airflow_home:
   airflow_dags:
   airflow_logs:
   jenkins_home_1:
