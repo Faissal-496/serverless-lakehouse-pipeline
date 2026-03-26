@@ -130,69 +130,14 @@ services:
     command: webserver
 
   # ============================================================================
-  # AIRFLOW SCHEDULER #1 (HA Instance 1)
+  # AIRFLOW SCHEDULER #1 - DISABLED FOR SQLITE
+  # Note: SQLite doesn't support concurrent access. Use PostgreSQL for HA.
   # ============================================================================
-  airflow-scheduler-1:
+  # AIRFLOW SCHEDULER (Primary for local SQLite)
+  # ============================================================================
+  airflow-scheduler:
     image: airflow-runtime:local
-    container_name: lakehouse-assurance-prod-airflow-scheduler-1
-    depends_on:
-      - airflow-webserver
-    environment:
-      # Core Configuration
-      AIRFLOW_HOME: /opt/airflow
-      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags/repo/orchestration/airflow/dags
-      AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/dags/repo/orchestration/airflow/plugins
-      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
-      
-      # Database Configuration (SQLite for local dev)
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
-      
-      # Executor Configuration
-      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
-      AIRFLOW__CORE__PARALLELISM: 1
-      AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: 1
-      AIRFLOW__CORE__SQL_ALCHEMY_POOL_SIZE: 5
-      AIRFLOW__CORE__SQL_ALCHEMY_MAX_OVERFLOW: 10
-      
-      # Scheduler Configuration
-      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
-      AIRFLOW__SCHEDULER__CATCHUP_BY_DEFAULT: "False"
-      AIRFLOW__SCHEDULER__MAX_DAGRUNS_TO_CREATE_PER_LOOP: 1
-      AIRFLOW__SCHEDULER__PARSING_PROCESSES: 2
-      
-      # Security
-      AIRFLOW__CORE__FERNET_KEY: a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
-      
-      # Logging
-      AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
-      
-      # Python Path
-      PYTHONPATH: /opt/airflow/dags/repo/src
-      
-      # Application Configuration
-      CONFIG_DIR: /opt/airflow/dags/repo/config
-      APP_ENV: dev
-      S3_BUCKET: lakehouse-assurance-dev
-      GLUE_DB_NAME: lakehouse_assurance_dev
-    volumes:
-      - airflow_dags:/opt/airflow/dags
-      - airflow_logs:/opt/airflow/logs
-    networks:
-      - lakehouse-network
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
-    command: scheduler
-
-  # ============================================================================
-  # AIRFLOW SCHEDULER #2 (HA Instance 2)
-  # ============================================================================
-  airflow-scheduler-2:
-    image: airflow-runtime:local
-    container_name: lakehouse-assurance-prod-airflow-scheduler-2
+    container_name: lakehouse-airflow-scheduler
     depends_on:
       - airflow-webserver
     environment:
