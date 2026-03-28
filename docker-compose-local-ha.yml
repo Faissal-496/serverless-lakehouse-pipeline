@@ -1,5 +1,57 @@
 services:
   # ============================================================================
+  # POSTGRESQL - Airflow Metadata Database (Replaces SQLite)
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: airflow-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lakehouse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "2"
+
+  # ============================================================================
+  # REDIS - Celery Broker (for distributed task queue)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: airflow-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - lakehouse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "2"
+
+  # ============================================================================
   # GIT-SYNC - Synchronise DAGs depuis GitHub (branche dev)
   # ============================================================================
   git-sync:
@@ -80,15 +132,24 @@ services:
       AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/plugins
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       
-      # Database Configuration (SQLite for local dev)
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      # Database Configuration (PostgreSQL for HA)
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
       
-      # Executor Configuration
-      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
-      AIRFLOW__CORE__PARALLELISM: 1
-      AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: 1
+      # Executor Configuration (CeleryExecutor for distributed)
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CORE__PARALLELISM: 4
+      AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: 4
       AIRFLOW__CORE__SQL_ALCHEMY_POOL_SIZE: 5
       AIRFLOW__CORE__SQL_ALCHEMY_MAX_OVERFLOW: 10
+      
+      # Celery Broker Configuration (Redis)
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CELERY__ACCEPT_CONTENT: json
+      AIRFLOW__CELERY__TASK_SERIALIZER: json
+      AIRFLOW__CELERY__RESULT_SERIALIZER: json
+      
+      # Webserver Configuration
       AIRFLOW__WEBSERVER__SECRET_KEY: local_webserver_secret_key_dev
       AIRFLOW__WEBSERVER__WORKERS: 2
       AIRFLOW__WEBSERVER__WORKER_CLASS: sync
@@ -142,6 +203,8 @@ services:
     image: airflow-runtime:local
     container_name: lakehouse-airflow-scheduler
     depends_on:
+      - postgres
+      - redis
       - airflow-webserver
     environment:
       # Core Configuration
@@ -150,20 +213,27 @@ services:
       AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/plugins
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       
-      # Database Configuration (SQLite for local dev)
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      # Database Configuration (PostgreSQL for HA)
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
       
-      # Executor Configuration
-      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
-      AIRFLOW__CORE__PARALLELISM: 1
-      AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: 1
+      # Executor Configuration (CeleryExecutor for distributed)
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CORE__PARALLELISM: 4
+      AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: 4
       AIRFLOW__CORE__SQL_ALCHEMY_POOL_SIZE: 5
       AIRFLOW__CORE__SQL_ALCHEMY_MAX_OVERFLOW: 10
+      
+      # Celery Broker Configuration (Redis)
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CELERY__ACCEPT_CONTENT: json
+      AIRFLOW__CELERY__TASK_SERIALIZER: json
+      AIRFLOW__CELERY__RESULT_SERIALIZER: json
       
       # Scheduler Configuration
       AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
       AIRFLOW__SCHEDULER__CATCHUP_BY_DEFAULT: "False"
-      AIRFLOW__SCHEDULER__MAX_DAGRUNS_TO_CREATE_PER_LOOP: 1
+      AIRFLOW__SCHEDULER__MAX_DAGRUNS_TO_CREATE_PER_LOOP: 4
       AIRFLOW__SCHEDULER__PARSING_PROCESSES: 2
       
       # Security
@@ -197,6 +267,146 @@ services:
         max-file: "3"
     # Note: No healthcheck for scheduler (doesn't expose HTTP API like webserver)
     command: scheduler
+
+  # ============================================================================
+  # CELERY WORKER 1 - Distributed Task Executor
+  # ============================================================================
+  airflow-worker-1:
+    image: airflow-runtime:local
+    container_name: lakehouse-airflow-worker-1
+    depends_on:
+      - postgres
+      - redis
+      - airflow-scheduler
+    environment:
+      # Core Configuration
+      AIRFLOW_HOME: /opt/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/plugins
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      
+      # Database Configuration (PostgreSQL for HA)
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      
+      # Executor Configuration (CeleryExecutor)
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CORE__PARALLELISM: 4
+      AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: 4
+      AIRFLOW__CORE__SQL_ALCHEMY_POOL_SIZE: 5
+      AIRFLOW__CORE__SQL_ALCHEMY_MAX_OVERFLOW: 10
+      
+      # Celery Broker Configuration (Redis)
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CELERY__ACCEPT_CONTENT: json
+      AIRFLOW__CELERY__TASK_SERIALIZER: json
+      AIRFLOW__CELERY__RESULT_SERIALIZER: json
+      
+      # Celery Worker Configuration
+      AIRFLOW__CELERY__WORKER_PREFETCH_MULTIPLIER: 1
+      AIRFLOW__CELERY__WORKER_MAX_TASKS_PER_CHILD: 1000
+      
+      # Security
+      AIRFLOW__CORE__FERNET_KEY: a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
+      
+      # Logging
+      AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+      
+      # Python Path
+      PYTHONPATH: /opt/airflow/src
+      
+      # Application Configuration
+      CONFIG_DIR: /opt/airflow/config
+      APP_ENV: dev
+      S3_BUCKET: lakehouse-assurance-dev
+      GLUE_DB_NAME: lakehouse_assurance_dev
+    volumes:
+      - airflow_home:/opt/airflow
+      - ./orchestration/airflow/dags:/opt/airflow/dags
+      - ./orchestration/airflow/plugins:/opt/airflow/plugins
+      - ./src:/opt/airflow/src:ro
+      - ./config:/opt/airflow/config:ro
+      - airflow_logs:/opt/airflow/logs
+    networks:
+      - lakehouse-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    entrypoint: /entrypoint.sh
+    command: ["celery", "worker", "-q", "default,priority", "-c", "2", "-v"]
+
+  # ============================================================================
+  # CELERY WORKER 2 - Distributed Task Executor (for parallel execution)
+  # ============================================================================
+  airflow-worker-2:
+    image: airflow-runtime:local
+    container_name: lakehouse-airflow-worker-2
+    depends_on:
+      - postgres
+      - redis
+      - airflow-scheduler
+    environment:
+      # Core Configuration
+      AIRFLOW_HOME: /opt/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/plugins
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      
+      # Database Configuration (PostgreSQL for HA)
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      
+      # Executor Configuration (CeleryExecutor)
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CORE__PARALLELISM: 4
+      AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: 4
+      AIRFLOW__CORE__SQL_ALCHEMY_POOL_SIZE: 5
+      AIRFLOW__CORE__SQL_ALCHEMY_MAX_OVERFLOW: 10
+      
+      # Celery Broker Configuration (Redis)
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CELERY__ACCEPT_CONTENT: json
+      AIRFLOW__CELERY__TASK_SERIALIZER: json
+      AIRFLOW__CELERY__RESULT_SERIALIZER: json
+      
+      # Celery Worker Configuration
+      AIRFLOW__CELERY__WORKER_PREFETCH_MULTIPLIER: 1
+      AIRFLOW__CELERY__WORKER_MAX_TASKS_PER_CHILD: 1000
+      
+      # Security
+      AIRFLOW__CORE__FERNET_KEY: a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
+      
+      # Logging
+      AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+      
+      # Python Path
+      PYTHONPATH: /opt/airflow/src
+      
+      # Application Configuration
+      CONFIG_DIR: /opt/airflow/config
+      APP_ENV: dev
+      S3_BUCKET: lakehouse-assurance-dev
+      GLUE_DB_NAME: lakehouse_assurance_dev
+    volumes:
+      - airflow_home:/opt/airflow
+      - ./orchestration/airflow/dags:/opt/airflow/dags
+      - ./orchestration/airflow/plugins:/opt/airflow/plugins
+      - ./src:/opt/airflow/src:ro
+      - ./config:/opt/airflow/config:ro
+      - airflow_logs:/opt/airflow/logs
+    networks:
+      - lakehouse-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    entrypoint: /entrypoint.sh
+    command: ["celery", "worker", "-q", "default,priority", "-c", "2", "-v"]
 
   # ============================================================================
   # JENKINS CONTROLLER (ACTIVE) - HA Primary
@@ -311,6 +521,8 @@ networks:
     driver: bridge
 
 volumes:
+  postgres_data:
+  redis_data:
   airflow_home:
   airflow_dags:
   airflow_logs:

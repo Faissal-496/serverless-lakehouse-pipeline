@@ -10,6 +10,7 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="$PROJECT_ROOT/docker-compose-local-ha.yml"
 ENV_FILE="$PROJECT_ROOT/.env.local-ha"
+COMPOSE_CMD=""  # Will be set by check_docker()
 
 # Colors
 RED='\033[0;31m'
@@ -47,12 +48,18 @@ check_docker() {
         exit 1
     fi
     
-    if ! command -v docker-compose &> /dev/null; then
+    # Check for docker compose (built-in, preferred)
+    if docker compose version &> /dev/null; then
+        COMPOSE_CMD="docker compose"
+        log_success "Docker Compose (built-in) found"
+    # Fallback to docker-compose plugin
+    elif command -v docker-compose &> /dev/null; then
+        COMPOSE_CMD="docker-compose"
+        log_success "Docker Compose (plugin) found"
+    else
         log_error "Docker Compose is not installed"
         exit 1
     fi
-    
-    log_success "Docker and Docker Compose found"
 }
 
 check_images() {
@@ -94,7 +101,7 @@ start_services() {
         exit 1
     fi
     
-    docker-compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+    eval "$COMPOSE_CMD -f $COMPOSE_FILE --env-file $ENV_FILE up -d"
     
     log_success "Services started!"
     
@@ -109,7 +116,7 @@ stop_services() {
     log_info "Stopping Local HA environment..."
     
     cd "$PROJECT_ROOT"
-    docker-compose -f "$COMPOSE_FILE" down
+    eval "$COMPOSE_CMD -f $COMPOSE_FILE down"
     
     log_success "Services stopped!"
 }
@@ -127,7 +134,7 @@ show_status() {
     echo ""
     
     cd "$PROJECT_ROOT"
-    docker-compose -f "$COMPOSE_FILE" ps
+    eval "$COMPOSE_CMD -f $COMPOSE_FILE ps --no-trunc"
     
     echo ""
     log_info "Access URLs:"
@@ -145,7 +152,7 @@ show_logs() {
     echo ""
     
     cd "$PROJECT_ROOT"
-    docker-compose -f "$COMPOSE_FILE" logs -f "$@"
+    eval "$COMPOSE_CMD -f $COMPOSE_FILE logs -f $@"
 }
 
 show_help() {
@@ -196,7 +203,7 @@ shell_service() {
     
     log_info "Opening shell in $service..."
     cd "$PROJECT_ROOT"
-    docker-compose -f "$COMPOSE_FILE" exec "$service" /bin/bash
+    eval "$COMPOSE_CMD -f $COMPOSE_FILE exec $service /bin/bash"
 }
 
 build_images() {
@@ -218,7 +225,7 @@ clean_environment() {
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         log_info "Cleaning up..."
         cd "$PROJECT_ROOT"
-        docker-compose -f "$COMPOSE_FILE" down -v
+        eval "$COMPOSE_CMD -f $COMPOSE_FILE down -v"
         log_success "Cleaned!"
     else
         log_warn "Cancelled"

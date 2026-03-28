@@ -17,6 +17,7 @@ logs/
 
 # Env
 .env
+.env.local-ha
 
 # Data (à adapter selon ton projet)
 data/
