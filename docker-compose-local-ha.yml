@@ -59,7 +59,7 @@ services:
     container_name: lakehouse-git-sync
     user: "0"
     environment:
-      GITSYNC_REPO: https://github.com/fisal-bel/serverless-lakehouse-pipeline.git
+      GITSYNC_REPO: https://github.com/Faissal-496/serverless-lakehouse-pipeline.git
       GITSYNC_BRANCH: dev
       GITSYNC_ROOT: /git
       GITSYNC_DEST: repo
