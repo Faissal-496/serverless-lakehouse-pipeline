@@ -335,8 +335,10 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
-    entrypoint: /entrypoint.sh
-    command: ["celery", "worker", "-q", "default,priority", "-c", "2", "-v"]
+    entrypoint:
+      - bash
+      - -c
+      - rm -f /opt/airflow/airflow-worker*.pid && exec /entrypoint.sh celery worker -q default,priority -c 2 -v
 
   # ============================================================================
   # CELERY WORKER 2 - Distributed Task Executor (for parallel execution)
@@ -405,8 +407,10 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
-    entrypoint: /entrypoint.sh
-    command: ["celery", "worker", "-q", "default,priority", "-c", "2", "-v"]
+    entrypoint:
+      - bash
+      - -c
+      - rm -f /opt/airflow/airflow-worker*.pid && exec /entrypoint.sh celery worker -q default,priority -c 2 -v
 
   # ============================================================================
   # JENKINS CONTROLLER (ACTIVE) - HA Primary
