@@ -265,7 +265,12 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
-    # Note: No healthcheck for scheduler (doesn't expose HTTP API like webserver)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, sys; sys.exit(0 if os.path.isdir('/opt/airflow/logs') else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     command: scheduler
 
   # ============================================================================
@@ -335,6 +340,12 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, sys; sys.exit(0 if os.path.isdir('/opt/airflow/logs') else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     entrypoint:
       - bash
       - -c
@@ -407,6 +418,12 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, sys; sys.exit(0 if os.path.isdir('/opt/airflow/logs') else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     entrypoint:
       - bash
       - -c
