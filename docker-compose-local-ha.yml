@@ -199,11 +199,12 @@ services:
     command: scheduler
 
   # ============================================================================
-  # JENKINS CONTROLLER #1 (HA Instance 1)
+  # JENKINS CONTROLLER (ACTIVE) - HA Primary
+  # Single active controller mounting shared volume
   # ============================================================================
-  jenkins-controller-1:
+  jenkins-controller:
     image: jenkins/jenkins:lts
-    container_name: assurance-prod-jenkins-controller1
+    container_name: jenkins-controller-active
     environment:
       JAVA_OPTS: -Xmx1024m -Xms512m
       JENKINS_OPTS: ""
@@ -211,7 +212,7 @@ services:
       - "8081:8080"
       - "50000:50000"
     volumes:
-      - jenkins_home_1:/var/jenkins_home
+      - jenkins_home:/var/jenkins_home
     networks:
       - lakehouse-network
     restart: unless-stopped
@@ -228,19 +229,20 @@ services:
       start_period: 60s
 
   # ============================================================================
-  # JENKINS CONTROLLER #2 (HA Instance 2)
+  # JENKINS CONTROLLER (STANDBY) - HA Failover
+  # Standby instance with same shared volume, can be promoted to active
+  # Usage: docker compose --profile standby up -d jenkins-controller-standby
   # ============================================================================
-  jenkins-controller-2:
+  jenkins-controller-standby:
     image: jenkins/jenkins:lts
-    container_name: assurance-prod-jenkins-controller2
+    container_name: jenkins-controller-standby
+    profiles:
+      - standby
     environment:
       JAVA_OPTS: -Xmx1024m -Xms512m
       JENKINS_OPTS: ""
-    ports:
-      - "8082:8080"
-      - "50001:50000"
     volumes:
-      - jenkins_home_2:/var/jenkins_home
+      - jenkins_home:/var/jenkins_home
     networks:
       - lakehouse-network
     restart: unless-stopped
@@ -249,34 +251,28 @@ services:
       options:
         max-size: "50m"
         max-file: "2"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
 
   # ============================================================================
-  # JENKINS AGENT #1
+  # JENKINS AGENT #1 - Build Agent
   # ============================================================================
   jenkins-agent-1:
     image: jenkins/inbound-agent:latest
-    container_name: assurance-prod-jenkins-agent1
+    container_name: jenkins-agent-build1
     environment:
-      JENKINS_AGENT_NAME: agent1
-      JENKINS_URL: http://jenkins-controller-1:8080
+      JENKINS_AGENT_NAME: agent-build-1
+      JENKINS_URL: http://jenkins-controller:8080
       JENKINS_SECRET: ${JENKINS_SECRET:-dummy_secret}
       JENKINS_USER_NAME: admin
     ports:
       - "9001:9000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - jenkins_agent_1:/home/jenkins
+      - jenkins_agent_build1:/home/jenkins
     networks:
       - lakehouse-network
     restart: unless-stopped
     depends_on:
-      - jenkins-controller-1
+      - jenkins-controller
     logging:
       driver: "json-file"
       options:
@@ -284,26 +280,26 @@ services:
         max-file: "2"
 
   # ============================================================================
-  # JENKINS AGENT #2
+  # JENKINS AGENT #2 - Infrastructure Agent
   # ============================================================================
   jenkins-agent-2:
     image: jenkins/inbound-agent:latest
-    container_name: assurance-prod-jenkins-agent2
+    container_name: jenkins-agent-infra1
     environment:
-      JENKINS_AGENT_NAME: agent2
-      JENKINS_URL: http://jenkins-controller-2:8080
+      JENKINS_AGENT_NAME: agent-infra-1
+      JENKINS_URL: http://jenkins-controller:8080
       JENKINS_SECRET: ${JENKINS_SECRET:-dummy_secret}
       JENKINS_USER_NAME: admin
     ports:
       - "9002:9000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - jenkins_agent_2:/home/jenkins
+      - jenkins_agent_infra1:/home/jenkins
     networks:
       - lakehouse-network
     restart: unless-stopped
     depends_on:
-      - jenkins-controller-2
+      - jenkins-controller
     logging:
       driver: "json-file"
       options:
@@ -318,7 +314,6 @@ volumes:
   airflow_home:
   airflow_dags:
   airflow_logs:
-  jenkins_home_1:
-  jenkins_home_2:
-  jenkins_agent_1:
-  jenkins_agent_2:
+  jenkins_home:           # SHARED volume for HA (both active and standby)
+  jenkins_agent_build1:
+  jenkins_agent_infra1:
