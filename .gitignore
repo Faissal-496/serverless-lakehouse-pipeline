@@ -49,4 +49,5 @@ test_deployement.py
 
 # other files to ignore
 docs/*.md
-*.md
+*.md# Analysis reports and benchmarks (not committed per user request)
+Analysis/

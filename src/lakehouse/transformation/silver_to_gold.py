@@ -35,7 +35,7 @@ def run(spark: SparkSession, resolver: PathResolver) -> None:
         logger.info("-" * 80)
         
         # =========================
-        # 1. READ SILVER DATA
+        # 1. READ SILVER DATA (WITH CACHING)
         # =========================
         logger.info("Loading silver client-contract unified data...")
         
@@ -44,10 +44,14 @@ def run(spark: SparkSession, resolver: PathResolver) -> None:
         )
         
         df_silver = spark.read.parquet(s3_silver_path)
-        total_records = df_silver.count()
         
-        logger.info(f"Silver data loaded: {total_records} records")
-        logger.info(f"   Columns: {len(df_silver.columns)}")
+        # Cache the silver data for reuse across all 3 gold tables
+        df_silver.cache()
+        total_records = df_silver.count()  # Trigger caching & get record count
+        num_columns = len(df_silver.columns)
+        
+        logger.info(f"Silver data loaded and cached: {total_records} records")
+        logger.info(f"   Columns: {num_columns}")
         
         # =========================
         # 2. GOLD TABLE 1: CLIENT PROFILE ANALYSIS
@@ -205,6 +209,10 @@ def run(spark: SparkSession, resolver: PathResolver) -> None:
         logger.info("-" * 80)
         logger.info("SILVER TO GOLD TRANSFORMATION COMPLETED SUCCESSFULLY")
         logger.info("-" * 80)
+        
+        # Cleanup: Free memory
+        df_silver.unpersist()
+        logger.info("Cleared silver data cache")
         
     except Exception as e:
         logger.error(f"Error in silver_to_gold transformation: {str(e)}", exc_info=True)

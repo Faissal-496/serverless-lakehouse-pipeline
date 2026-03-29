@@ -1,0 +1,76 @@
+spark:
+  config:
+
+    # =========================
+    # SPARK STANDALONE CONFIGURATION
+    # (Simulates EMR Serverless locally)
+    # Local cluster: master + 2 workers
+    # =========================
+    
+    # 1. CLUSTER MODE / PARALLELISM
+    # ================================
+    # For local testing only - will be replaced by EMR endpoint in production
+    spark.master: "spark://127.0.0.1:7077"
+    
+    # Node resources (per executor)
+    spark.executor.memory: 2g
+    spark.executor.cores: 4
+    spark.executor.instances: 2
+    
+    # Driver
+    spark.driver.memory: 2g
+    spark.driver.cores: 2
+    
+    # Shuffle & partitioning
+    spark.sql.shuffle.partitions: 100
+    spark.default.parallelism: 8
+
+    # 2. MEMORY MANAGEMENT
+    # =====================
+    spark.memory.storageFraction: 0.4  # 40% for caching
+    spark.memory.offHeap.enabled: false
+    
+    # 3. OPTIMIZATION
+    # ================
+    spark.sql.adaptive.enabled: true
+    spark.sql.adaptive.coalescePartitions.enabled: true
+    spark.sql.adaptive.skewJoin.enabled: true
+    spark.sql.broadcastTimeout: 900
+    spark.sql.autoBroadcastJoinThreshold: 100m
+    
+    # 4. SERIALIZATION
+    # =================
+    spark.serializer: org.apache.spark.serializer.KryoSerializer
+    spark.kryoserializer.buffer.max: 256m
+    
+    # 5. S3 / HADOOP
+    # ===============
+    spark.hadoop.fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+    spark.hadoop.fs.s3a.aws.credentials.provider: com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+    spark.hadoop.fs.s3a.path.style.access: true
+    
+    # S3A performance tuning
+    spark.hadoop.fs.s3a.connection.ssl.enabled: true
+    spark.hadoop.fs.s3a.fast.upload: true
+    spark.hadoop.fs.s3a.threads.max: 20
+    spark.hadoop.fs.s3a.connection.maximum: 100
+    spark.hadoop.fs.s3a.multipart.size: 16m
+    
+    # 6. NETWORK / STABILITY
+    # ======================
+    spark.network.timeout: 1200s
+    spark.executor.heartbeatInterval: 120s
+    spark.shuffle.service.enabled: true
+    
+    # 7. LOGGING / DEBUG
+    # ===================
+    spark.sql.session.timeZone: UTC
+    spark.sql.debug.maxToStringFields: 50
+    spark.eventLog.enabled: true
+    spark.eventLog.dir: /tmp/spark-events
+    
+    # 8. SHUFFLE OPTIMIZATION
+    # =======================
+    spark.shuffle.compress: true
+    spark.shuffle.manager: sort
+    spark.sql.shuffle.reduceLocality: false  # Optimize for distributed

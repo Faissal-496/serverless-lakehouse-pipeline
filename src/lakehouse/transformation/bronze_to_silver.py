@@ -42,21 +42,20 @@ def run(spark: SparkSession, resolver: PathResolver) -> None:
             layer="bronze", dataset="Contrat2"
         )
         s3_bronze_path_contrat1 = resolver.s3_layer_path(
-            layer="bronze", dataset="contrat1"
+            layer="bronze", dataset="Contrat1"
         )
         
         df_contrat2 = spark.read.parquet(s3_bronze_path_contrat2)
         df_contrat1 = spark.read.parquet(s3_bronze_path_contrat1)
         
-        logger.info(f"Contrat2 loaded: {df_contrat2.count()} rows")
-        logger.info(f"Contrat1 loaded: {df_contrat1.count()} rows")
+        logger.info(f"Contrat2 schema: {len(df_contrat2.columns)} columns")
+        logger.info(f"Contrat1 schema: {len(df_contrat1.columns)} columns")
         
         # =========================
         # 2. UNION CONTRACTS
         # =========================
-        logger.info("Merging contract tables...")
+        logger.info("Merging contract tables (lazy evaluation)...")
         df_contracts = df_contrat2.unionByName(df_contrat1)
-        logger.info(f"Merged contracts: {df_contracts.count()} rows")
         
         # =========================
         # 3. TYPE CASTING
@@ -86,10 +85,8 @@ def run(spark: SparkSession, resolver: PathResolver) -> None:
         # 5. REMOVE DUPLICATES
         # =========================
         logger.info("Removing contract duplicates...")
-        before_dedup = df_silver.count()
         df_silver = df_silver.dropDuplicates(["nusoc", "nucon"])
-        after_dedup = df_silver.count()
-        logger.info(f"Removed {before_dedup - after_dedup} duplicates")
+        logger.info(f"Deduplication applied (lazy evaluation)")
         
         # =========================
         # 6. DECODE BUSINESS VARIABLES
@@ -167,7 +164,7 @@ def run(spark: SparkSession, resolver: PathResolver) -> None:
         )
         
         df_client = spark.read.parquet(s3_bronze_path_client)
-        logger.info(f"Client data loaded: {df_client.count()} rows")
+        logger.info(f"Client data loaded from {s3_bronze_path_client}")
         
         # =========================
         # 10. CLIENT TRANSFORMATIONS
@@ -181,12 +178,10 @@ def run(spark: SparkSession, resolver: PathResolver) -> None:
         )
         
         # Quality checks
-        before_qc = df_client_silver.count()
         df_client_silver = df_client_silver.filter(
             (col("age_client") >= 14) & (col("age_client") <= 100)
         )
-        after_qc = df_client_silver.count()
-        logger.info(f"Quality check: removed {before_qc - after_qc} invalid ages")
+        logger.info(f"Quality check: filter applied for age 14-100")
         
         # Young client flag
         df_client_silver = df_client_silver.withColumn(
@@ -207,7 +202,6 @@ def run(spark: SparkSession, resolver: PathResolver) -> None:
             on="nusoc",
             how="inner"
         )
-        logger.info(f"Joint result: {df_silver_global.count()} rows")
         
         # =========================
         # 12. CUSTOMER SEGMENT FLAGS
