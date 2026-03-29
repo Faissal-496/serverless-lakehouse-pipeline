@@ -97,8 +97,8 @@ def run(spark: SparkSession, resolver: PathResolver) -> None:
         # INGEST CONTRAT1
         # =========================
         logger.info("[2/3] Ingesting Contrat1...")
-        input_contrat1 = resolver.local_input("contrat1.csv")
-        output_contrat1 = resolver.s3_layer_path("bronze", "contrat1")
+        input_contrat1 = resolver.local_input("Contrat1.csv")
+        output_contrat1 = resolver.s3_layer_path("bronze", "Contrat1")
         
         df_contrat1 = read_csv(spark, input_contrat1, schema=CONTRAT1_SCHEMA)
         write_parquet(df_contrat1, output_contrat1)
@@ -108,7 +108,7 @@ def run(spark: SparkSession, resolver: PathResolver) -> None:
         # INGEST CLIENT
         # =========================
         logger.info("[3/3] Ingesting Client...")
-        input_client = resolver.local_input("client.csv")
+        input_client = resolver.local_input("Client.csv")
         output_client = resolver.s3_layer_path("bronze", "Client")
         
         df_client = read_csv(spark, input_client, schema=CLIENT_SCHEMA)

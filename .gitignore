@@ -51,3 +51,5 @@ test_deployement.py
 docs/*.md
 *.md# Analysis reports and benchmarks (not committed per user request)
 Analysis/
+.env.docker
+docker-compose-local-ha.yml

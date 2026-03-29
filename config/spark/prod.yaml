@@ -1,4 +1,72 @@
 spark:
   config:
-    spark.sql.shuffle.partitions: 4
+
+    # =========================
+    # 1. AUTO-SCALING PARTITIONS (CRITICAL FOR PERFORMANCE)
+    # =========================
+    # For datasets 100K-500K rows: 100+ partitions for parallelism
+    # EMR Serverless: No need to set, auto-scales based on data
+    spark.sql.shuffle.partitions: 100
+    spark.default.parallelism: 8
+
+    # =========================
+    # 2. EXECUTOR RESOURCES (Production)
+    # =========================
     spark.driver.memory: 4g
+    spark.executor.memory: 4g
+    spark.executor.cores: 4
+    spark.executor.instances: 2
+
+    # =========================
+    # 3. MEMORY & CACHING OPTIMIZATION
+    # =========================
+    # Adaptive execution: automatically coalesce partitions if too many
+    spark.sql.adaptive.enabled: true
+    spark.sql.adaptive.coalescePartitions.enabled: true
+    spark.memory.storageFraction: 0.5
+    spark.sql.cache.maxEntries: 10000
+
+    # =========================
+    # 4. SERIALIZATION (High Performance)
+    # =========================
+    spark.serializer: org.apache.spark.serializer.KryoSerializer
+    spark.kryoserializer.buffer.max: 256m
+
+    # =========================
+    # 5. S3 / HADOOP S3A (Optimized for AWS)
+    # =========================
+    spark.hadoop.fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+    spark.hadoop.fs.s3a.aws.credentials.provider: com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+    spark.hadoop.fs.s3a.path.style.access: true
+    
+    # S3A Connection Tuning
+    spark.hadoop.fs.s3a.connection.ssl.enabled: true
+    spark.hadoop.fs.s3a.fast.upload: true
+    spark.hadoop.fs.s3a.threads.max: 20
+    spark.hadoop.fs.s3a.connection.maximum: 100
+
+    # =========================
+    # 6. NETWORK & STABILITY
+    # =========================
+    spark.network.timeout: 900s
+    spark.executor.heartbeatInterval: 120s
+    spark.sql.broadcastTimeout: 600
+
+    # =========================
+    # 7. SQL OPTIMIZATION
+    # =========================
+    spark.sql.session.timeZone: UTC
+    spark.sql.debug.maxToStringFields: 50
+    spark.sql.shuffle.reduceLocality: true
+
+    # =========================
+    # 8. JOIN OPTIMIZATION (Critical for EMR Serverless)
+    # =========================
+    spark.sql.autoBroadcastJoinThreshold: 100m
+    spark.sql.join.preferSortMergeJoin: false
+
+    # =========================
+    # 9. TUNGSTEN (Native Code Generation)
+    # =========================
+    spark.sql.codegen.wholeStage: true
+    spark.sql.codegen.factoryMode: CODEGEN_ONLY
