@@ -1,34 +1,24 @@
-# Fixed Spark Worker Dockerfile
-# Based on apache/spark:3.5.0 but with all dependencies properly installed
+# Spark Worker - inherits all S3A + Python deps from base
+FROM lakehouse-spark-base:latest
 
-FROM apache/spark:3.5.0
+LABEL role="worker" \
+      component="spark-cluster"
 
-# Install missing dependencies and ensure entrypoint is properly configured
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    openjdk-11-jdk-headless \
-    curl \
-    wget \
-    procps \
-    ca-certificates && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    # Verify Spark binaries exist
-    ls -la /opt/spark-3.5.0-bin-hadoop3/bin/ | grep -E "spark-class|spark-submit"
+USER root
 
-# Set environment variables
-ENV SPARK_HOME=/opt/spark-3.5.0-bin-hadoop3
-ENV PATH=$SPARK_HOME/bin:$PATH
-ENV PYSPARK_PYTHON=/usr/bin/python3
-ENV PYSPARK_DRIVER_PYTHON=/usr/bin/python3
+# Copy startup script with execute permissions
+COPY --chmod=755 docker/spark/start-worker.sh /start-worker.sh
 
-# Verify spark-class is executable
-RUN chmod +x ${SPARK_HOME}/bin/spark-class && \
-    chmod +x ${SPARK_HOME}/bin/spark-submit && \
-    file ${SPARK_HOME}/bin/spark-class && \
-    file ${SPARK_HOME}/bin/spark-submit
+# Verify startup script exists
+RUN test -f /start-worker.sh || (echo "ERROR: start-worker.sh not found" && exit 1)
 
-# Test that spark-class can be invoked
-RUN ${SPARK_HOME}/bin/spark-class -v 2>&1 | head -5 || true
+USER spark
 
-ENTRYPOINT [ "/opt/entrypoint.sh" ]
+# Expose ports: RPC (7078) + WebUI (8081)
+EXPOSE 7078 8081
+
+# Healthcheck: verify worker process is running
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
+  CMD ps aux | grep -i "org.apache.spark.deploy.worker.Worker" | grep -v grep > /dev/null || exit 1
+
+ENTRYPOINT ["/start-worker.sh"]

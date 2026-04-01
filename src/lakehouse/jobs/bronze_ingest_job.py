@@ -66,14 +66,18 @@ class BronzeIngestJob(SparkJob):
             row_count = df.count()
             logger.info(f"{dataset_name} loaded: {row_count} rows")
             
-            # Write to Bronze layer on S3
-            output_path = self.config.get_s3_layer_path("bronze", dataset_name)
-            logger.debug(f"Writing to: {output_path}")
+            # Write to Bronze layer - use local path for dev, S3 for prod
+            if self.config.app_env == "dev":
+                output_path = self.config.get_local_output_path("bronze", dataset_name)
+                logger.debug(f"Writing to local path: {output_path}")
+            else:
+                output_path = self.config.get_s3_layer_path("bronze", dataset_name)
+                logger.debug(f"Writing to S3 path: {output_path}")
             
             with S3OperationMetricsContext("write_parquet") as s3_metrics:
                 df.write.mode("overwrite").parquet(output_path)
             
-            logger.info(f"{dataset_name} written to S3: {output_path}")
+            logger.info(f"{dataset_name} written to: {output_path}")
             
             # Record metrics
             record_rows_processed("bronze", dataset_name, row_count)

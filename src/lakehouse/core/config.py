@@ -208,6 +208,19 @@ class PlatformConfig:
         """Get local input file path"""
         return str(self.data_base_path / filename)
 
+    def get_local_output_path(self, layer: str, dataset: str) -> str:
+        """
+        Get local filesystem output path for a data layer (dev/test mode).
+        
+        Args:
+            layer: bronze, silver, or gold
+            dataset: dataset name
+            
+        Returns:
+            Local filesystem path
+        """
+        return str(self.data_base_path / layer / dataset)
+
     def to_dict(self) -> dict:
         """Return configuration as dictionary (for logging/debugging)"""
         return {

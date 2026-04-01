@@ -28,8 +28,19 @@ class GoldTransformJob(SparkJob):
         """Execute Silver to Gold transformation"""
         logger.info("Starting Gold Transformation")
         
+        # Determine path generation based on environment
+        def get_input_path(layer, dataset):
+            if self.config.app_env == "dev":
+                return self.config.get_local_output_path(layer, dataset)
+            return self.config.get_s3_layer_path(layer, dataset)
+        
+        def get_output_path(layer, dataset):
+            if self.config.app_env == "dev":
+                return self.config.get_local_output_path(layer, dataset)
+            return self.config.get_s3_layer_path(layer, dataset)
+        
         # Read Silver data
-        silver_path = self.config.get_s3_layer_path("silver", "Client_contrat_silver")
+        silver_path = get_input_path("silver", "Client_contrat_silver")
         df_silver = self.spark.read.parquet(silver_path)
         total_records = df_silver.count()
         
@@ -55,7 +66,7 @@ class GoldTransformJob(SparkJob):
         client_count = df_client_profile.count()
         logger.info(f"Total unique clients: {client_count}")
         
-        gold_client_path = self.config.get_s3_layer_path("gold", "client_profile_analysis")
+        gold_client_path = get_output_path("gold", "client_profile_analysis")
         with S3OperationMetricsContext("write_gold_client"):
             df_client_profile.write.mode("overwrite").parquet(gold_client_path)
         logger.info(f"Client profile saved: {gold_client_path}")
@@ -71,7 +82,7 @@ class GoldTransformJob(SparkJob):
             spark_round(avg("nb_garanties"), 1).alias("avg_guarantees")
         ).orderBy(desc("total_contracts"))
         
-        gold_contract_path = self.config.get_s3_layer_path("gold", "contract_analysis")
+        gold_contract_path = get_output_path("gold", "contract_analysis")
         with S3OperationMetricsContext("write_gold_contract"):
             df_contract_vehicle.write.mode("overwrite").parquet(gold_contract_path)
         logger.info(f"Contract analysis saved: {gold_contract_path}")
@@ -103,7 +114,7 @@ class GoldTransformJob(SparkJob):
         
         df_kpi = self.spark.createDataFrame([kpi_row])
         
-        gold_kpi_path = self.config.get_s3_layer_path("gold", "kpi_dashboard")
+        gold_kpi_path = get_output_path("gold", "kpi_dashboard")
         with S3OperationMetricsContext("write_gold_kpi"):
             df_kpi.write.mode("append").parquet(gold_kpi_path)
         

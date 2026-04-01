@@ -28,16 +28,27 @@ class SilverTransformJob(SparkJob):
         """Execute Bronze to Silver transformation"""
         logger.info("Starting Silver Transformation")
         
+        # Determine path generation based on environment
+        def get_input_path(layer, dataset):
+            if self.config.app_env == "dev":
+                return self.config.get_local_output_path(layer, dataset)
+            return self.config.get_s3_layer_path(layer, dataset)
+        
+        def get_output_path(layer, dataset):
+            if self.config.app_env == "dev":
+                return self.config.get_local_output_path(layer, dataset)
+            return self.config.get_s3_layer_path(layer, dataset)
+        
         # Read Bronze layers
         logger.info("Reading Bronze data...")
         df_contrat2 = self.spark.read.parquet(
-            self.config.get_s3_layer_path("bronze", "Contrat2")
+            get_input_path("bronze", "Contrat2")
         )
         df_contrat1 = self.spark.read.parquet(
-            self.config.get_s3_layer_path("bronze", "contrat1")
+            get_input_path("bronze", "contrat1")
         )
         df_client = self.spark.read.parquet(
-            self.config.get_s3_layer_path("bronze", "Client")
+            get_input_path("bronze", "Client")
         )
         
         logger.info(f"Contrat2: {df_contrat2.count()} rows")
@@ -149,7 +160,7 @@ class SilverTransformJob(SparkJob):
         
         # = WRITE TO SILVER = #
         total_rows = df_silver.count()
-        output_path = self.config.get_s3_layer_path("silver", "Client_contrat_silver")
+        output_path = get_output_path("silver", "Client_contrat_silver")
         
         logger.info(f"Writing {total_rows} rows to Silver...")
         with S3OperationMetricsContext("write_silver"):
