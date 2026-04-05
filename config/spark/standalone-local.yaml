@@ -9,21 +9,22 @@ spark:
     
     # 1. CLUSTER MODE / PARALLELISM
     # ================================
-    # For local testing only - will be replaced by EMR endpoint in production
-    spark.master: "spark://127.0.0.1:7077"
+    # Standalone cluster: spark://spark-master:7077 (Docker Compose service name)
+    spark.master: "spark://spark-master:7077"
     
     # Node resources (per executor)
-    spark.executor.memory: 2g
-    spark.executor.cores: 4
+    # Each worker container has 2 cores and 2GB RAM total; reserve ~1.5GB for OS.
+    spark.executor.memory: 512m
+    spark.executor.cores: 1
     spark.executor.instances: 2
     
     # Driver
-    spark.driver.memory: 2g
-    spark.driver.cores: 2
+    spark.driver.memory: 512m
+    spark.driver.cores: 1
     
-    # Shuffle & partitioning
-    spark.sql.shuffle.partitions: 100
-    spark.default.parallelism: 8
+    # Shuffle & partitioning - tuned for <1GB data on 4 total cores
+    spark.sql.shuffle.partitions: 4
+    spark.default.parallelism: 4
 
     # 2. MEMORY MANAGEMENT
     # =====================
@@ -58,9 +59,9 @@ spark:
     
     # 6. NETWORK / STABILITY
     # ======================
-    spark.network.timeout: 1200s
-    spark.executor.heartbeatInterval: 120s
-    spark.shuffle.service.enabled: true
+    spark.network.timeout: 300s
+    spark.executor.heartbeatInterval: 60s
+    # spark.shuffle.service.enabled not needed in --deploy-mode client
     
     # 7. LOGGING / DEBUG
     # ===================
