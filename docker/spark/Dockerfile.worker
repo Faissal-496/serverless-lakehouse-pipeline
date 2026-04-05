@@ -7,7 +7,8 @@ LABEL role="worker" \
 USER root
 
 # Copy startup script with execute permissions
-COPY --chmod=755 docker/spark/start-worker.sh /start-worker.sh
+COPY docker/spark/start-worker.sh /start-worker.sh
+RUN chmod 755 /start-worker.sh
 
 # Verify startup script exists
 RUN test -f /start-worker.sh || (echo "ERROR: start-worker.sh not found" && exit 1)

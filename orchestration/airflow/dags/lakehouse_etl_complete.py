@@ -44,7 +44,7 @@ SPARK_DRIVER_CONF = [
     "spark.driverEnv.PYTHONPATH=/app/src",
     "spark.driverEnv.PYSPARK_PYTHON=/home/airflow/.local/bin/python3",
     "spark.driverEnv.PYSPARK_DRIVER_PYTHON=/home/airflow/.local/bin/python3",
-    "spark.driverEnv.APP_ENV=dev",
+    "spark.driverEnv.APP_ENV=prod",
     "spark.driverEnv.CONFIG_DIR=/app/config",
     "spark.driverEnv.DATA_BASE_PATH=/data",
     f"spark.driverEnv.AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID}",
@@ -54,7 +54,8 @@ SPARK_DRIVER_CONF = [
 
 SPARK_EXECUTOR_CONF = [
     "spark.executorEnv.PYTHONPATH=/app/src",
-    "spark.executorEnv.APP_ENV=dev",
+    "spark.executorEnv.PYSPARK_PYTHON=/usr/bin/python3",
+    "spark.executorEnv.APP_ENV=prod",
     "spark.executorEnv.CONFIG_DIR=/app/config",
     "spark.executorEnv.DATA_BASE_PATH=/data",
     f"spark.executorEnv.AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID}",
@@ -65,6 +66,11 @@ SPARK_EXECUTOR_CONF = [
 SPARK_S3A_CONF = [
     "spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem",
     "spark.hadoop.fs.s3a.aws.credentials.provider=com.amazonaws.auth.EnvironmentVariableCredentialsProvider",
+]
+
+# Shared ivy cache so JARs are not re-downloaded on every spark-submit
+SPARK_MISC_CONF = [
+    "spark.jars.ivy=/tmp/.ivy2",
 ]
 
 # ==============================================================================
@@ -83,7 +89,7 @@ dag = DAG(
     default_args={
         'owner': 'lakehouse-team',
         'retries': 2,
-        'retry_delay': timedelta(minutes=10),
+        'retry_delay': timedelta(minutes=1),
         'execution_timeout': timedelta(hours=2),
     },
 )
@@ -127,16 +133,15 @@ bronze_ingest = BashOperator(
         echo "=========================================="
     """,
     dag=dag,
+    append_env=True,
     env={
         'PYTHONPATH': '/app/src',
         'PYSPARK_PYTHON': AIRFLOW_PYTHON,
         'PYSPARK_DRIVER_PYTHON': AIRFLOW_PYTHON,
-        'APP_ENV': 'dev',
+        'APP_ENV': 'prod',
         'CONFIG_DIR': '/app/config',
         'DATA_BASE_PATH': '/data',
-        'AWS_ACCESS_KEY_ID': '${AWS_ACCESS_KEY_ID}',
-        'AWS_SECRET_ACCESS_KEY': '${AWS_SECRET_ACCESS_KEY}',
-        'AWS_DEFAULT_REGION': '${AWS_DEFAULT_REGION}',
+        'SPARK_MASTER': 'spark://spark-master:7077',
     },
 )
 
@@ -170,16 +175,15 @@ silver_transform = BashOperator(
         echo "=========================================="
     """,
     dag=dag,
+    append_env=True,
     env={
         'PYTHONPATH': '/app/src',
         'PYSPARK_PYTHON': AIRFLOW_PYTHON,
         'PYSPARK_DRIVER_PYTHON': AIRFLOW_PYTHON,
-        'APP_ENV': 'dev',
+        'APP_ENV': 'prod',
         'CONFIG_DIR': '/app/config',
         'DATA_BASE_PATH': '/data',
-        'AWS_ACCESS_KEY_ID': '${AWS_ACCESS_KEY_ID}',
-        'AWS_SECRET_ACCESS_KEY': '${AWS_SECRET_ACCESS_KEY}',
-        'AWS_DEFAULT_REGION': '${AWS_DEFAULT_REGION}',
+        'SPARK_MASTER': 'spark://spark-master:7077',
     },
 )
 
@@ -213,16 +217,15 @@ gold_transform = BashOperator(
         echo "=========================================="
     """,
     dag=dag,
+    append_env=True,
     env={
         'PYTHONPATH': '/app/src',
         'PYSPARK_PYTHON': AIRFLOW_PYTHON,
         'PYSPARK_DRIVER_PYTHON': AIRFLOW_PYTHON,
-        'APP_ENV': 'dev',
+        'APP_ENV': 'prod',
         'CONFIG_DIR': '/app/config',
         'DATA_BASE_PATH': '/data',
-        'AWS_ACCESS_KEY_ID': '${AWS_ACCESS_KEY_ID}',
-        'AWS_SECRET_ACCESS_KEY': '${AWS_SECRET_ACCESS_KEY}',
-        'AWS_DEFAULT_REGION': '${AWS_DEFAULT_REGION}',
+        'SPARK_MASTER': 'spark://spark-master:7077',
     },
 )
 

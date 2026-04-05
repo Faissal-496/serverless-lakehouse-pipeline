@@ -1,6 +1,5 @@
 spark:
   app_name: lakehouse
-  master: local[*]
   config:
     spark.sql.sources.partitionOverwriteMode: dynamic
     spark.sql.shuffle.partitions: 4

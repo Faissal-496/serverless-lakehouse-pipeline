@@ -45,7 +45,7 @@ class SilverTransformJob(SparkJob):
             get_input_path("bronze", "Contrat2")
         )
         df_contrat1 = self.spark.read.parquet(
-            get_input_path("bronze", "contrat1")
+            get_input_path("bronze", "Contrat1")
         )
         df_client = self.spark.read.parquet(
             get_input_path("bronze", "Client")

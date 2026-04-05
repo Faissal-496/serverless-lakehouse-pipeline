@@ -17,7 +17,7 @@ class SparkFactory:
     def create_session(
         app_name: str,
         config: PlatformConfig,
-        enable_hive: bool = True,
+        enable_hive: bool = False,
         enable_delta: bool = False,
     ) -> SparkSession:
         """
@@ -37,8 +37,11 @@ class SparkFactory:
         builder = (
             SparkSession.builder
             .appName(app_name)
-            .master(config.spark_master)
         )
+        
+        # Set master only if explicitly provided via config (not default local[*])
+        if config.spark_master and config.spark_master != "local[*]":
+            builder = builder.master(config.spark_master)
         
         # Enable Hive Metastore
         if enable_hive:
@@ -66,31 +69,11 @@ class SparkFactory:
         # S3A tuning for performance
         builder = (
             builder
-            .config("spark.hadoop.fs.s3a.block.size", "64m")
-            .config("spark.hadoop.fs.s3a.multipart.size", "64m")
-            .config("spark.hadoop.fs.s3a.threads.max", "20")
+            .config("spark.hadoop.fs.s3a.block.size", "32m")
+            .config("spark.hadoop.fs.s3a.multipart.size", "32m")
+            .config("spark.hadoop.fs.s3a.threads.max", "8")
         )
-        
-        # Delta Lake (if enabled)
-        if enable_delta:
-            builder = (
-                builder
-                .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-                .config(
-                    "spark.sql.catalog.spark_catalog",
-                    "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-                )
-            )
-        
-        # Glue Catalog integration
-        builder = (
-            builder
-            .config("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatalog")
-            .config("spark.sql.catalog.glue_catalog.type", "glue")
-            .config("spark.sql.catalog.glue_catalog.warehouse", f"s3a://{config.s3_bucket}/warehouse")
-            .config("hive.metastore.glue.catalogId", config.glue_database)
-        )
-        
+
         spark = builder.getOrCreate()
         
         # Set log level

@@ -33,10 +33,10 @@ class BronzeIngestJob(SparkJob):
         self._ingest_dataset("Contrat2", "Contrat2.csv", CONTRAT2_SCHEMA)
         
         # Ingest Contrat1
-        self._ingest_dataset("contrat1", "contrat1.csv", CONTRAT2_SCHEMA)
+        self._ingest_dataset("Contrat1", "Contrat1.csv", CONTRAT2_SCHEMA)
         
         # Ingest Client
-        self._ingest_dataset("Client", "client.csv", CLIENT_SCHEMA)
+        self._ingest_dataset("Client", "Client.csv", CLIENT_SCHEMA)
         
         logger.info("Bronze Ingestion completed successfully")
     
@@ -52,8 +52,8 @@ class BronzeIngestJob(SparkJob):
         logger.info(f"Ingesting {dataset_name}...")
         
         try:
-            # Read CSV from local input directory
-            input_path = self.config.get_local_input_path(filename)
+            # Read CSV — S3 RAW prefix for prod, local path for dev
+            input_path = self.config.get_input_path(filename)
             logger.debug(f"Reading from: {input_path}")
             
             df = self.spark.read \

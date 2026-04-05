@@ -2,71 +2,63 @@ spark:
   config:
 
     # =========================
-    # 1. AUTO-SCALING PARTITIONS (CRITICAL FOR PERFORMANCE)
+    # 1. PARTITIONS - tuned for <1GB data on 4 cores (2 workers x 2 cores)
+    # For EMR/prod at scale: raise to 200+
     # =========================
-    # For datasets 100K-500K rows: 100+ partitions for parallelism
-    # EMR Serverless: No need to set, auto-scales based on data
-    spark.sql.shuffle.partitions: 100
-    spark.default.parallelism: 8
+    spark.sql.shuffle.partitions: 4
+    spark.default.parallelism: 4
 
     # =========================
-    # 2. EXECUTOR RESOURCES (Production)
+    # 2. EXECUTOR RESOURCES - local Docker (2 workers x 2 cores x 2GiB each)
+    # Driver runs on Airflow worker (shared with other Airflow JVMs)
     # =========================
-    spark.driver.memory: 4g
-    spark.executor.memory: 4g
-    spark.executor.cores: 4
+    spark.driver.memory: 512m
+    spark.executor.memory: 512m
+    spark.executor.memoryOverhead: 256m
+    spark.executor.cores: 1
     spark.executor.instances: 2
 
     # =========================
-    # 3. MEMORY & CACHING OPTIMIZATION
+    # 3. ADAPTIVE QUERY EXECUTION - auto-coalesces partitions at runtime
     # =========================
-    # Adaptive execution: automatically coalesce partitions if too many
     spark.sql.adaptive.enabled: true
     spark.sql.adaptive.coalescePartitions.enabled: true
-    spark.memory.storageFraction: 0.5
-    spark.sql.cache.maxEntries: 10000
+    spark.sql.adaptive.advisoryPartitionSizeInBytes: 64m
 
     # =========================
-    # 4. SERIALIZATION (High Performance)
+    # 4. SERIALIZATION
     # =========================
     spark.serializer: org.apache.spark.serializer.KryoSerializer
-    spark.kryoserializer.buffer.max: 256m
+    spark.kryoserializer.buffer.max: 64m
 
     # =========================
-    # 5. S3 / HADOOP S3A (Optimized for AWS)
+    # 5. S3A - optimised for small files and low-latency
     # =========================
     spark.hadoop.fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
-    spark.hadoop.fs.s3a.aws.credentials.provider: com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+    spark.hadoop.fs.s3a.aws.credentials.provider: com.amazonaws.auth.EnvironmentVariableCredentialsProvider
     spark.hadoop.fs.s3a.path.style.access: true
-    
-    # S3A Connection Tuning
     spark.hadoop.fs.s3a.connection.ssl.enabled: true
     spark.hadoop.fs.s3a.fast.upload: true
-    spark.hadoop.fs.s3a.threads.max: 20
-    spark.hadoop.fs.s3a.connection.maximum: 100
+    spark.hadoop.fs.s3a.threads.max: 8
+    spark.hadoop.fs.s3a.connection.maximum: 20
+    spark.hadoop.fs.s3a.multipart.size: 32m
+    spark.hadoop.fs.s3a.block.size: 32m
 
     # =========================
     # 6. NETWORK & STABILITY
     # =========================
-    spark.network.timeout: 900s
-    spark.executor.heartbeatInterval: 120s
-    spark.sql.broadcastTimeout: 600
+    spark.network.timeout: 300s
+    spark.executor.heartbeatInterval: 60s
+    spark.sql.broadcastTimeout: 300
 
     # =========================
-    # 7. SQL OPTIMIZATION
+    # 7. SQL
     # =========================
     spark.sql.session.timeZone: UTC
-    spark.sql.debug.maxToStringFields: 50
-    spark.sql.shuffle.reduceLocality: true
-
-    # =========================
-    # 8. JOIN OPTIMIZATION (Critical for EMR Serverless)
-    # =========================
-    spark.sql.autoBroadcastJoinThreshold: 100m
+    spark.sql.autoBroadcastJoinThreshold: 50m
     spark.sql.join.preferSortMergeJoin: false
 
     # =========================
-    # 9. TUNGSTEN (Native Code Generation)
+    # 8. JAR CACHE - reuse ivy cache across spark-submit invocations
     # =========================
-    spark.sql.codegen.wholeStage: true
-    spark.sql.codegen.factoryMode: CODEGEN_ONLY
+    spark.jars.ivy: /tmp/.ivy2

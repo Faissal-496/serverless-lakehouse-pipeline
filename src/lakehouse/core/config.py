@@ -43,7 +43,14 @@ class PlatformConfig:
         """
         # Runtime parameters
         self.app_env = app_env or os.getenv("APP_ENV", "dev")
-        self.execution_date = execution_date or self._parse_execution_date()
+        raw_date = execution_date or self._parse_execution_date()
+        if isinstance(raw_date, str):
+            try:
+                self.execution_date = datetime.fromisoformat(raw_date)
+            except ValueError:
+                self.execution_date = datetime.strptime(raw_date, "%Y-%m-%d")
+        else:
+            self.execution_date = raw_date
         
         if not self.app_env:
             raise ConfigurationError("APP_ENV not set and no app_env provided")
@@ -203,6 +210,12 @@ class PlatformConfig:
             f"day={self.execution_day:02d}/"
             f"execution_date={self.execution_date_str}.json"
         )
+
+    def get_input_path(self, filename: str) -> str:
+        """Get input path — S3 RAW prefix for prod, local data_base_path for dev"""
+        if self.app_env == "prod":
+            return f"s3a://{self.s3_bucket}/RAW/{filename}"
+        return str(self.data_base_path / filename)
 
     def get_local_input_path(self, filename: str) -> str:
         """Get local input file path"""
