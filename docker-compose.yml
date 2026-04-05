@@ -70,7 +70,6 @@ services:
       - "7077:7077"  # Spark RPC
       - "8084:8080"  # Spark Web UI
     volumes:
-      - ./data:/data:ro
       - ./config:/app/config:ro
       - spark_data:/tmp/spark_output
       - spark_logs:/opt/lakehouse/logs
@@ -108,7 +107,6 @@ services:
       - "7078:7078"  # Spark Worker RPC
       - "8081:8081"  # Spark Worker WebUI
     volumes:
-      - ./data:/data:ro
       - ./config:/app/config:ro
       - spark_data:/tmp/spark_output
       - spark_logs:/opt/lakehouse/logs
@@ -146,7 +144,6 @@ services:
       - "7079:7079"  # Spark Worker RPC
       - "8082:8082"  # Spark Worker WebUI
     volumes:
-      - ./data:/data:ro
       - ./config:/app/config:ro
       - spark_data:/tmp/spark_output
       - spark_logs:/opt/lakehouse/logs
@@ -242,7 +239,6 @@ services:
       - ./orchestration/airflow/dags:/opt/airflow/dags:ro
       - ./src:/app/src:ro
       - ./config:/app/config:ro
-      - ./data:/data:ro
       - spark_data:/tmp/spark_output
       - airflow_logs:/opt/airflow/logs
     ports:
@@ -304,7 +300,6 @@ services:
       - ./orchestration/airflow/dags:/opt/airflow/dags:ro
       - ./src:/app/src:ro
       - ./config:/app/config:ro
-      - ./data:/data:ro
       - spark_data:/tmp/spark_output
       - spark_logs:/opt/lakehouse/logs
       - airflow_logs:/opt/airflow/logs
@@ -360,7 +355,6 @@ services:
       - ./orchestration/airflow/dags:/opt/airflow/dags:ro
       - ./src:/app/src:ro
       - ./config:/app/config:ro
-      - ./data:/data:ro
       - spark_data:/tmp/spark_output
       - spark_logs:/opt/lakehouse/logs
       - airflow_logs:/opt/airflow/logs
@@ -416,7 +410,6 @@ services:
       - ./orchestration/airflow/dags:/opt/airflow/dags:ro
       - ./src:/app/src:ro
       - ./config:/app/config:ro
-      - ./data:/data:ro
       - spark_data:/tmp/spark_output
       - spark_logs:/opt/lakehouse/logs
       - airflow_logs:/opt/airflow/logs
