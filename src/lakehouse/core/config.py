@@ -143,10 +143,17 @@ class PlatformConfig:
         
         # Data paths
         self.data_base_path = Path(os.getenv("DATA_BASE_PATH", "/opt/lakehouse/data"))
-        # Only create the local data directory in non-prod environments.
-        # In prod all I/O goes to S3; /data does not exist in containers.
-        if self.app_env != "prod":
+        # Attempt to create the local data directory.
+        # In environments where the path is not writable (e.g. production or CI
+        # containers without a /data bind-mount) silently skip — all persistent
+        # I/O goes to S3 in those cases and the local path is never used.
+        try:
             self.data_base_path.mkdir(parents=True, exist_ok=True)
+        except (PermissionError, OSError) as exc:
+            logger.warning(
+                f"Cannot create data_base_path '{self.data_base_path}': {exc} — "
+                "skipping local directory creation (S3 I/O mode)"
+            )
 
     def _apply_kwarg_overrides(self, kwargs: Dict[str, Any]):
         """Apply keyword argument overrides (highest priority)"""

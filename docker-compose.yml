@@ -77,10 +77,11 @@ services:
     networks:
       - lakehouse_network
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "7077"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+      test: ["CMD", "bash", "-c", "curl -sf http://$(hostname -i):8080/ > /dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   # Spark Worker 1
   spark-worker-1:
@@ -114,10 +115,11 @@ services:
     networks:
       - lakehouse_network
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "7078"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+      test: ["CMD", "bash", "-c", "curl -sf http://$(hostname -i):8081/ > /dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   # Spark Worker 2
   spark-worker-2:
@@ -151,10 +153,11 @@ services:
     networks:
       - lakehouse_network
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "7079"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+      test: ["CMD", "bash", "-c", "curl -sf http://$(hostname -i):8082/ > /dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   # Airflow DB init
   airflow-db-init:
@@ -231,9 +234,10 @@ services:
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
       S3_BUCKET: ${S3_BUCKET}
       # Lakehouse configuration
-      DATA_BASE_PATH: /data
-      APP_ENV: dev
+      APP_ENV: prod
       CONFIG_DIR: /app/config
+      SPARK_MASTER: spark://spark-master:7077
+      SPARK_DEPLOY_MODE: client
       GLUE_DATABASE: lakehouse_assurance
     volumes:
       - ./orchestration/airflow/dags:/opt/airflow/dags:ro
@@ -292,9 +296,10 @@ services:
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
       S3_BUCKET: ${S3_BUCKET}
       # Lakehouse configuration
-      DATA_BASE_PATH: /data
-      APP_ENV: dev
+      APP_ENV: prod
       CONFIG_DIR: /app/config
+      SPARK_MASTER: spark://spark-master:7077
+      SPARK_DEPLOY_MODE: client
       GLUE_DATABASE: lakehouse_assurance
     volumes:
       - ./orchestration/airflow/dags:/opt/airflow/dags:ro
@@ -347,9 +352,10 @@ services:
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
       S3_BUCKET: ${S3_BUCKET}
       # Lakehouse configuration
-      DATA_BASE_PATH: /data
-      APP_ENV: dev
+      APP_ENV: prod
       CONFIG_DIR: /app/config
+      SPARK_MASTER: spark://spark-master:7077
+      SPARK_DEPLOY_MODE: client
       GLUE_DATABASE: lakehouse_assurance
     volumes:
       - ./orchestration/airflow/dags:/opt/airflow/dags:ro
@@ -402,9 +408,10 @@ services:
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
       S3_BUCKET: ${S3_BUCKET}
       # Lakehouse configuration
-      DATA_BASE_PATH: /data
-      APP_ENV: dev
+      APP_ENV: prod
       CONFIG_DIR: /app/config
+      SPARK_MASTER: spark://spark-master:7077
+      SPARK_DEPLOY_MODE: client
       GLUE_DATABASE: lakehouse_assurance
     volumes:
       - ./orchestration/airflow/dags:/opt/airflow/dags:ro

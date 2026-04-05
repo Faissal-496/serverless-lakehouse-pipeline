@@ -1,0 +1,65 @@
+spark:
+  # EMR Serverless / EMR on EKS execution profile.
+  # SPARK_MASTER=yarn and SPARK_DEPLOY_MODE=cluster are set in the EMR
+  # environment - these values serve as fallback when the env vars are absent.
+  master: "yarn"
+  deploy_mode: "cluster"
+
+  config:
+
+    # =========================
+    # 1. PARTITIONS - EMR scale (200 tasks is Spark default for large clusters)
+    # Lower if datasets stay < 1 GB after migration.
+    # =========================
+    spark.sql.shuffle.partitions: 50
+    spark.default.parallelism: 50
+
+    # =========================
+    # 2. EXECUTOR RESOURCES - EMR Serverless defaults
+    # Tune via EMR application config; these are passed via spark-submit.
+    # =========================
+    spark.driver.memory: 2g
+    spark.executor.memory: 4g
+    spark.executor.memoryOverhead: 1g
+    spark.executor.cores: 4
+    spark.executor.instances: 4
+
+    # =========================
+    # 3. ADAPTIVE QUERY EXECUTION
+    # =========================
+    spark.sql.adaptive.enabled: true
+    spark.sql.adaptive.coalescePartitions.enabled: true
+    spark.sql.adaptive.advisoryPartitionSizeInBytes: 128m
+    spark.sql.adaptive.skewJoin.enabled: true
+
+    # =========================
+    # 4. SERIALIZATION
+    # =========================
+    spark.serializer: org.apache.spark.serializer.KryoSerializer
+    spark.kryoserializer.buffer.max: 128m
+
+    # =========================
+    # 5. S3A - EMR uses AWS SDK natively; EnvironmentVariableCredentialsProvider
+    # works for both EMR roles (via instance profile) and explicit keys.
+    # =========================
+    spark.hadoop.fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+    spark.hadoop.fs.s3a.aws.credentials.provider: com.amazonaws.auth.EnvironmentVariableCredentialsProvider
+    spark.hadoop.fs.s3a.fast.upload: true
+    spark.hadoop.fs.s3a.threads.max: 20
+    spark.hadoop.fs.s3a.connection.maximum: 50
+    spark.hadoop.fs.s3a.multipart.size: 64m
+    spark.hadoop.fs.s3a.block.size: 64m
+
+    # =========================
+    # 6. NETWORK & STABILITY
+    # =========================
+    spark.network.timeout: 600s
+    spark.executor.heartbeatInterval: 120s
+    spark.sql.broadcastTimeout: 600
+
+    # =========================
+    # 7. SQL
+    # =========================
+    spark.sql.session.timeZone: UTC
+    spark.sql.autoBroadcastJoinThreshold: 100m
+    spark.sql.join.preferSortMergeJoin: false

@@ -11,7 +11,7 @@ Execution: spark-submit \
 """
 
 from pyspark.sql.functions import (
-    col, when, lit, coalesce, year, current_date, broadcast
+    col, when, lit, coalesce, year, current_date
 )
 from lakehouse.jobs.base_job import SparkJob
 from lakehouse.monitoring.logging import logger
@@ -103,13 +103,11 @@ class SilverTransformJob(SparkJob):
         else:
             df_silver = df_silver.withColumn("nb_garanties", lit(0))
 
-        # Broadcast join: df_client is a small dimension table (one row per client).
-        # broadcast() tells Spark to replicate it to every executor instead of
-        # doing a sort-merge join, which avoids a shuffle on the contracts side.
+        # Sort-merge join: broadcast() caused BroadcastExchangeExec EOFException
+        # under Docker memory pressure (executors OOM before sending broadcast data).
+        # Spark AQE will auto-broadcast if the table is small enough at runtime.
         df_silver = df_silver.join(
-            broadcast(
-                df_client.select("nusoc", "sexsoc", "aadhso", "cspsoc", "sitmat", "sitpav1", "nbenf")
-            ),
+            df_client.select("nusoc", "sexsoc", "aadhso", "cspsoc", "sitmat", "sitpav1", "nbenf"),
             on="nusoc",
             how="left"
         )
@@ -130,12 +128,9 @@ class SilverTransformJob(SparkJob):
             )
         )
 
-        # Single count before write - this is the only Spark action in this job
-        # before the write itself. Used for final row-count metrics.
-        total_rows = df_silver.count()
         output_path = get_output_path("silver", "Client_contrat_silver")
 
-        logger.info(f"Writing {total_rows} rows to Silver...")
+        logger.info("Writing Silver...")
         # coalesce(4): produces 4 output files (~500MB each for 2GB data).
         # Avoids the small-files problem on S3 without forcing a full shuffle
         # (coalesce is a narrow transformation, unlike repartition).
@@ -143,7 +138,9 @@ class SilverTransformJob(SparkJob):
             df_silver.coalesce(4).write.mode("overwrite").parquet(output_path)
 
         logger.info(f"Silver written: {output_path}")
-        record_rows_processed("silver", "Client_contrat_silver", total_rows)
+        # Row count skipped: count() triggers an extra Spark job that causes
+        # EOFException under memory pressure on the local Docker cluster.
+        record_rows_processed("silver", "Client_contrat_silver", 0)
 
         logger.info("Silver Transformation completed successfully")
 

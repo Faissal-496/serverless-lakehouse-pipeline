@@ -62,10 +62,7 @@ class BronzeIngestJob(SparkJob):
                 .option("nullValue", "") \
                 .schema(schema) \
                 .csv(input_path)
-            
-            row_count = df.count()
-            logger.info(f"{dataset_name} loaded: {row_count} rows")
-            
+
             # Write to Bronze layer - use local path for dev, S3 for prod
             if self.config.app_env == "dev":
                 output_path = self.config.get_local_output_path("bronze", dataset_name)
@@ -73,21 +70,19 @@ class BronzeIngestJob(SparkJob):
             else:
                 output_path = self.config.get_s3_layer_path("bronze", dataset_name)
                 logger.debug(f"Writing to S3 path: {output_path}")
-            
+
             with S3OperationMetricsContext("write_parquet") as s3_metrics:
                 df.write.mode("overwrite").parquet(output_path)
-            
+
             logger.info(f"{dataset_name} written to: {output_path}")
-            
-            # Record metrics
-            record_rows_processed("bronze", dataset_name, row_count)
-            
-            # Log partition info
+
+            # Record metrics — exact row count skipped (no extra Spark scan needed)
+            record_rows_processed("bronze", dataset_name, 0)
             log_partition_processed(
                 dataset_name=dataset_name,
                 partition_date=self.execution_date_str,
-                row_count=row_count,
-                size_bytes=0  # Could calculate from df
+                row_count=0,
+                size_bytes=0,
             )
         
         except AnalysisException as e:

@@ -63,9 +63,7 @@ class GoldTransformJob(SparkJob):
             )
         )
 
-        # One count needed: used both for logging and for the metrics call below.
-        client_count = df_client_profile.count()
-        logger.info(f"Total unique clients: {client_count}")
+        logger.info("Writing client profile to Gold...")
 
         gold_client_path = get_output_path("gold", "client_profile_analysis")
         # coalesce(4): client profile is a deduplicated table, likely a few MB.
@@ -91,9 +89,7 @@ class GoldTransformJob(SparkJob):
         )
 
         # Cache the aggregated result: 3-5 rows total.
-        # The count() materializes the cache; the subsequent write reads from it.
         df_contract_vehicle.cache()
-        contract_count = df_contract_vehicle.count()
 
         gold_contract_path = get_output_path("gold", "contract_analysis")
         # coalesce(1): groupBy produces 3-5 rows (one per vehicle type).
@@ -110,8 +106,9 @@ class GoldTransformJob(SparkJob):
         # inference failures on distributed executors with native Python types.
         # Re-enable once migrated to explicit StructType.
 
-        record_rows_processed("gold", "client_profile_analysis", client_count)
-        record_rows_processed("gold", "contract_analysis", contract_count)
+        # Row counts skipped: count() causes EOFException under Docker memory pressure.
+        record_rows_processed("gold", "client_profile_analysis", 0)
+        record_rows_processed("gold", "contract_analysis", 0)
 
         logger.info("Gold Transformation completed successfully")
 

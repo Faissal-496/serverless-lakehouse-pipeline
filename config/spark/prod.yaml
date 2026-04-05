@@ -1,4 +1,12 @@
 spark:
+  # master and deploy_mode are DEFAULTS - always overridden by env vars
+  # SPARK_MASTER and SPARK_DEPLOY_MODE at runtime.
+  #
+  # Local Docker:  SPARK_MASTER=spark://spark-master:7077  SPARK_DEPLOY_MODE=client
+  # AWS EMR:       SPARK_MASTER=yarn                       SPARK_DEPLOY_MODE=cluster
+  master: "spark://spark-master:7077"
+  deploy_mode: "client"
+
   config:
 
     # =========================
@@ -9,14 +17,15 @@ spark:
     spark.default.parallelism: 4
 
     # =========================
-    # 2. EXECUTOR RESOURCES - local Docker (2 workers x 2 cores x 2GiB each)
-    # Each worker reports 2g to master. 1 executor per worker:
-    #   executor.memory 1g + overhead 256m = 1.25g per executor (fits in 2g worker)
-    #   executor.cores 2 uses both cores on each worker (was 1 = half cluster idle)
+    # 2. EXECUTOR RESOURCES - local Docker (2 workers x 2 cores x 2GiB)
+    # Host available RAM is ~1.4GB. Keep executors small to avoid OOM kills.
+    #   driver:   512m (Spark requires sys_mem >= 1.5×driver; 256m failed validation)
+    #   executor: 512m + overhead 128m = 640m per executor (safe on 2g worker)
+    #   2 executors total (1 per worker), 2 cores each
     # =========================
     spark.driver.memory: 512m
-    spark.executor.memory: 1g
-    spark.executor.memoryOverhead: 256m
+    spark.executor.memory: 512m
+    spark.executor.memoryOverhead: 128m
     spark.executor.cores: 2
     spark.executor.instances: 2
 
@@ -50,16 +59,19 @@ spark:
     # =========================
     # 6. NETWORK & STABILITY
     # =========================
-    spark.network.timeout: 300s
-    spark.executor.heartbeatInterval: 60s
-    spark.sql.broadcastTimeout: 300
+    spark.network.timeout: 600s
+    spark.executor.heartbeatInterval: 120s
+    spark.sql.broadcastTimeout: 600
 
     # =========================
     # 7. SQL
     # =========================
     spark.sql.session.timeZone: UTC
-    spark.sql.autoBroadcastJoinThreshold: 50m
-    spark.sql.join.preferSortMergeJoin: false
+    # Disable auto-broadcast: executors OOM when collecting broadcast data under
+    # Docker memory constraints (512m executor, ~1.4GB host free RAM).
+    # BroadcastExchangeExec causes java.io.EOFException on KryoDeserializationStream.
+    spark.sql.autoBroadcastJoinThreshold: -1
+    spark.sql.join.preferSortMergeJoin: true
 
     # =========================
     # 8. JAR CACHE - reuse ivy cache across spark-submit invocations
