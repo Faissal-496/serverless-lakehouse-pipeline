@@ -10,12 +10,14 @@ spark:
 
     # =========================
     # 2. EXECUTOR RESOURCES - local Docker (2 workers x 2 cores x 2GiB each)
-    # Driver runs on Airflow worker (shared with other Airflow JVMs)
+    # Each worker reports 2g to master. 1 executor per worker:
+    #   executor.memory 1g + overhead 256m = 1.25g per executor (fits in 2g worker)
+    #   executor.cores 2 uses both cores on each worker (was 1 = half cluster idle)
     # =========================
     spark.driver.memory: 512m
-    spark.executor.memory: 512m
+    spark.executor.memory: 1g
     spark.executor.memoryOverhead: 256m
-    spark.executor.cores: 1
+    spark.executor.cores: 2
     spark.executor.instances: 2
 
     # =========================

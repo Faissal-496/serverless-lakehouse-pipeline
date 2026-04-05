@@ -6,18 +6,17 @@ Pipeline: Bronze → Silver → Gold
 Execution: Full daily ETL with data quality checks
 
 DAG Structure:
-├── check_data_source              (Check if input data ready)
-├── bronze_ingestion               (Read CSV → Parquet in S3)
-│   └── silver_transformation      (Consolidate & clean)
-│       └── gold_transformation    (Aggregate & analytics)
-│           └── send_notification  (Completion alert)
+├── etl_start                      (Dummy start gate)
+├── bronze_ingest                  (Read CSV → Parquet in S3)
+│   └── silver_transform           (Consolidate & clean)
+│       └── gold_transform         (Aggregate & analytics)
+│           └── etl_end            (Dummy end gate)
 """
 
 from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.dummy import DummyOperator
-from airflow.utils.task_group import TaskGroup
 import os
 
 # ==============================================================================
@@ -25,7 +24,6 @@ import os
 # ==============================================================================
 
 SPARK_MASTER = "spark://spark-master:7077"
-AIRFLOW_USER = "airflow"
 AIRFLOW_PYTHON = "/home/airflow/.local/bin/python3"
 
 # AWS Credentials from environment
@@ -33,13 +31,11 @@ AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', '')
 AWS_DEFAULT_REGION = os.getenv('AWS_DEFAULT_REGION', 'eu-west-3')
 
-# Common environment variables (pre-configured in docker-compose.yml)
-SPARK_PACKAGES = (
-    "org.apache.hadoop:hadoop-aws:3.3.4,"
-    "com.amazonaws:aws-java-sdk-bundle:1.12.565"
-)
+# S3A JARs are pre-baked into both the Airflow Spark client (/opt/spark/jars/)
+# and the Spark worker images. No --packages flag needed: eliminates Ivy/Maven
+# resolution overhead (30-60 s per spark-submit call on cold start).
 
-# Spark configuration for driver and executors
+# Environment variables forwarded to the driver JVM (runs on Airflow worker)
 SPARK_DRIVER_CONF = [
     "spark.driverEnv.PYTHONPATH=/app/src",
     "spark.driverEnv.PYSPARK_PYTHON=/home/airflow/.local/bin/python3",
@@ -52,6 +48,7 @@ SPARK_DRIVER_CONF = [
     f"spark.driverEnv.AWS_DEFAULT_REGION={AWS_DEFAULT_REGION}",
 ]
 
+# Environment variables forwarded to executor JVMs (run on Spark workers)
 SPARK_EXECUTOR_CONF = [
     "spark.executorEnv.PYTHONPATH=/app/src",
     "spark.executorEnv.PYSPARK_PYTHON=/usr/bin/python3",
@@ -63,15 +60,29 @@ SPARK_EXECUTOR_CONF = [
     f"spark.executorEnv.AWS_DEFAULT_REGION={AWS_DEFAULT_REGION}",
 ]
 
+# S3A filesystem configuration (JARs already on classpath via pre-baked images)
 SPARK_S3A_CONF = [
     "spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem",
     "spark.hadoop.fs.s3a.aws.credentials.provider=com.amazonaws.auth.EnvironmentVariableCredentialsProvider",
 ]
 
-# Shared ivy cache so JARs are not re-downloaded on every spark-submit
-SPARK_MISC_CONF = [
-    "spark.jars.ivy=/tmp/.ivy2",
-]
+# Task env: sets process-level env vars for the spark-submit subprocess
+TASK_ENV = {
+    'PYTHONPATH': '/app/src',
+    'PYSPARK_PYTHON': AIRFLOW_PYTHON,
+    'PYSPARK_DRIVER_PYTHON': AIRFLOW_PYTHON,
+    'APP_ENV': 'prod',
+    'CONFIG_DIR': '/app/config',
+    'DATA_BASE_PATH': '/data',
+    'SPARK_MASTER': SPARK_MASTER,
+}
+
+# Build the common --conf fragment once to keep spark-submit calls DRY
+_ALL_CONF = (
+    ' '.join([f'--conf {c}' for c in SPARK_DRIVER_CONF]) + ' ' +
+    ' '.join([f'--conf {c}' for c in SPARK_EXECUTOR_CONF]) + ' ' +
+    ' '.join([f'--conf {c}' for c in SPARK_S3A_CONF])
+)
 
 # ==============================================================================
 # DAG Definition
@@ -112,37 +123,26 @@ bronze_ingest = BashOperator(
     bash_command=f"""
         set -e
         EXECUTION_DATE='{{{{ ds }}}}'
-        
+
         echo "=========================================="
         echo "[BRONZE] Ingestion Started"
         echo "Execution Date: $EXECUTION_DATE"
         echo "=========================================="
-        
-        spark-submit \
-            --master {SPARK_MASTER} \
-            --deploy-mode client \
-            --packages {SPARK_PACKAGES} \
-            {' '.join([f'--conf {conf}' for conf in SPARK_DRIVER_CONF])} \
-            {' '.join([f'--conf {conf}' for conf in SPARK_EXECUTOR_CONF])} \
-            {' '.join([f'--conf {conf}' for conf in SPARK_S3A_CONF])} \
-            /app/src/lakehouse/jobs/bronze_ingest_job.py \
+
+        spark-submit \\
+            --master {SPARK_MASTER} \\
+            --deploy-mode client \\
+            {_ALL_CONF} \\
+            /app/src/lakehouse/jobs/bronze_ingest_job.py \\
             --execution_date "$EXECUTION_DATE"
-        
+
         echo "=========================================="
         echo "[BRONZE] Ingestion Completed"
         echo "=========================================="
     """,
     dag=dag,
     append_env=True,
-    env={
-        'PYTHONPATH': '/app/src',
-        'PYSPARK_PYTHON': AIRFLOW_PYTHON,
-        'PYSPARK_DRIVER_PYTHON': AIRFLOW_PYTHON,
-        'APP_ENV': 'prod',
-        'CONFIG_DIR': '/app/config',
-        'DATA_BASE_PATH': '/data',
-        'SPARK_MASTER': 'spark://spark-master:7077',
-    },
+    env=TASK_ENV,
 )
 
 # ==============================================================================
@@ -154,37 +154,26 @@ silver_transform = BashOperator(
     bash_command=f"""
         set -e
         EXECUTION_DATE='{{{{ ds }}}}'
-        
+
         echo "=========================================="
         echo "[SILVER] Transformation Started"
         echo "Execution Date: $EXECUTION_DATE"
         echo "=========================================="
-        
-        spark-submit \
-            --master {SPARK_MASTER} \
-            --deploy-mode client \
-            --packages {SPARK_PACKAGES} \
-            {' '.join([f'--conf {conf}' for conf in SPARK_DRIVER_CONF])} \
-            {' '.join([f'--conf {conf}' for conf in SPARK_EXECUTOR_CONF])} \
-            {' '.join([f'--conf {conf}' for conf in SPARK_S3A_CONF])} \
-            /app/src/lakehouse/jobs/silver_transform_job.py \
+
+        spark-submit \\
+            --master {SPARK_MASTER} \\
+            --deploy-mode client \\
+            {_ALL_CONF} \\
+            /app/src/lakehouse/jobs/silver_transform_job.py \\
             --execution_date "$EXECUTION_DATE"
-        
+
         echo "=========================================="
         echo "[SILVER] Transformation Completed"
         echo "=========================================="
     """,
     dag=dag,
     append_env=True,
-    env={
-        'PYTHONPATH': '/app/src',
-        'PYSPARK_PYTHON': AIRFLOW_PYTHON,
-        'PYSPARK_DRIVER_PYTHON': AIRFLOW_PYTHON,
-        'APP_ENV': 'prod',
-        'CONFIG_DIR': '/app/config',
-        'DATA_BASE_PATH': '/data',
-        'SPARK_MASTER': 'spark://spark-master:7077',
-    },
+    env=TASK_ENV,
 )
 
 # ==============================================================================
@@ -196,37 +185,26 @@ gold_transform = BashOperator(
     bash_command=f"""
         set -e
         EXECUTION_DATE='{{{{ ds }}}}'
-        
+
         echo "=========================================="
         echo "[GOLD] Transformation Started"
         echo "Execution Date: $EXECUTION_DATE"
         echo "=========================================="
-        
-        spark-submit \
-            --master {SPARK_MASTER} \
-            --deploy-mode client \
-            --packages {SPARK_PACKAGES} \
-            {' '.join([f'--conf {conf}' for conf in SPARK_DRIVER_CONF])} \
-            {' '.join([f'--conf {conf}' for conf in SPARK_EXECUTOR_CONF])} \
-            {' '.join([f'--conf {conf}' for conf in SPARK_S3A_CONF])} \
-            /app/src/lakehouse/jobs/gold_transform_job.py \
+
+        spark-submit \\
+            --master {SPARK_MASTER} \\
+            --deploy-mode client \\
+            {_ALL_CONF} \\
+            /app/src/lakehouse/jobs/gold_transform_job.py \\
             --execution_date "$EXECUTION_DATE"
-        
+
         echo "=========================================="
         echo "[GOLD] Transformation Completed"
         echo "=========================================="
     """,
     dag=dag,
     append_env=True,
-    env={
-        'PYTHONPATH': '/app/src',
-        'PYSPARK_PYTHON': AIRFLOW_PYTHON,
-        'PYSPARK_DRIVER_PYTHON': AIRFLOW_PYTHON,
-        'APP_ENV': 'prod',
-        'CONFIG_DIR': '/app/config',
-        'DATA_BASE_PATH': '/data',
-        'SPARK_MASTER': 'spark://spark-master:7077',
-    },
+    env=TASK_ENV,
 )
 
 # ==============================================================================

@@ -7,15 +7,13 @@ ENV AIRFLOW__CORE__DAGS_FOLDER=$AIRFLOW_HOME/dags
 ENV SPARK_HOME=/opt/spark
 ENV PATH=$SPARK_HOME/bin:$PATH
 
-# Use Airflow's official method for adding Python packages (must be before USER change)
-# NOTE: pyspark NOT needed here - Spark installation includes PySpark
-# Airflow only needs spark-submit client to trigger jobs on cluster
-# CRITICAL: pyyaml MUST be installed explicitly for lakehouse config loading
-ENV _PIP_ADDITIONAL_REQUIREMENTS="pyyaml==6.0.1 pandas==2.0.3 pyarrow==12.0.1 python-json-logger==2.0.7 tenacity==8.2.3 python-dotenv==1.0.0 requests==2.31.0 boto3==1.28.85"
+# Packages installed via Airflow's recommended mechanism (startup-time install).
+# Only include packages not already provided by Airflow 2.9.0 deps.
+ENV _PIP_ADDITIONAL_REQUIREMENTS="pyyaml==6.0.1 python-json-logger==2.0.7 tenacity==8.2.3 python-dotenv==1.0.0 boto3==1.28.85"
 
 USER root
 
-# Install dependencies (Java, wget)
+# System dependencies: Java for the driver JVM, procps for spark-submit ps check
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         curl \
@@ -23,38 +21,32 @@ RUN apt-get update && \
         default-jre-headless \
         default-jdk-headless \
         wget \
-        netcat-traditional && \
+        netcat-traditional \
+        procps && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Spark Client (only for spark-submit binary)
+# Install Spark client (spark-submit binary only - not a cluster node).
+# Pre-bake S3A JARs in the same RUN layer as the Spark install.
+# In --deploy-mode client the driver JVM runs on this container; it needs
+# hadoop-aws and aws-java-sdk on its classpath to resolve s3a:// URIs.
+# Same JAR versions as the Spark worker image to avoid classpath conflicts.
 RUN cd /opt && \
     wget -q https://archive.apache.org/dist/spark/spark-3.5.0/spark-3.5.0-bin-hadoop3.tgz && \
     tar -xzf spark-3.5.0-bin-hadoop3.tgz && \
     rm spark-3.5.0-bin-hadoop3.tgz && \
     ln -s spark-3.5.0-bin-hadoop3 spark && \
-    chmod -R 755 /opt/spark
-# resoudre le probleme /opt/spark/bin/load-spark-env.sh: line 68: ps: command not found
-RUN apt-get update && apt-get install -y procps
+    chmod -R 755 /opt/spark && \
+    wget -q -O /opt/spark/jars/hadoop-aws-3.3.4.jar \
+        https://repo.maven.apache.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar && \
+    wget -q -O /opt/spark/jars/aws-java-sdk-bundle-1.12.565.jar \
+        https://repo.maven.apache.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.565/aws-java-sdk-bundle-1.12.565.jar && \
+    chmod 644 /opt/spark/jars/hadoop-aws-3.3.4.jar \
+              /opt/spark/jars/aws-java-sdk-bundle-1.12.565.jar
 
-# Explicitly install Python requirements using pip (explicit version pinning)
-# This ensures pyyaml and other critical packages are installed correctly
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir \
-        pyyaml==6.0.1 \
-        pandas==2.0.3 \
-        pyarrow==12.0.1 \
-        python-json-logger==2.0.7 \
-        tenacity==8.2.3 \
-        python-dotenv==1.0.0 \
-        requests==2.31.0 \
-        boto3==1.28.85
-
-# Create startup configuration directory
-RUN mkdir -p /opt/airflow/startup
-
-# Create a startup script that configures environment variables
-RUN printf '#!/bin/bash\n' > /opt/airflow/startup/configure-env.sh && \
+# Startup environment script used by bash sessions
+RUN mkdir -p /opt/airflow/startup && \
+    printf '#!/bin/bash\n' > /opt/airflow/startup/configure-env.sh && \
     printf 'export PYTHONPATH="/app/src:${PYTHONPATH:-}"\n' >> /opt/airflow/startup/configure-env.sh && \
     printf 'export APP_ENV="${APP_ENV:-dev}"\n' >> /opt/airflow/startup/configure-env.sh && \
     printf 'export CONFIG_DIR="${CONFIG_DIR:-/app/config}"\n' >> /opt/airflow/startup/configure-env.sh && \
@@ -63,5 +55,4 @@ RUN printf '#!/bin/bash\n' > /opt/airflow/startup/configure-env.sh && \
 
 USER airflow
 
-# Add startup script to bashrc
 RUN echo 'source /opt/airflow/startup/configure-env.sh' >> ~/.bashrc
