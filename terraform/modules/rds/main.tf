@@ -1,7 +1,7 @@
 # ============================================================================
 # TERRAFORM MODULE: RDS POSTGRESQL DATABASE
 # ============================================================================
-# 
+#
 # This module creates enterprise-grade PostgreSQL on AWS RDS with:
 # - Multi-AZ for high availability
 # - Automated backups with restoration capability
@@ -55,54 +55,54 @@ resource "aws_db_instance" "lakehouse" {
   identifier     = var.identifier
   engine         = "postgres"
   engine_version = var.engine_version
-  
+
   instance_class            = var.instance_class
   allocated_storage          = var.allocated_storage
   max_allocated_storage      = var.max_allocated_storage
   storage_encrypted          = true
-  
+
   # Database Configuration
   db_name  = var.database_name
   username = var.master_username
   password = var.master_password
-  
+
   # Backup Configuration
   backup_retention_period = var.backup_retention_period
   backup_window          = "03:00-04:00"  # UTC, off-peak
   copy_tags_to_snapshot  = true
-  
+
   # High Availability
   multi_az = var.multi_az
-  
+
   # Monitoring
   enabled_cloudwatch_logs_exports = ["postgresql"]
   monitoring_interval              = 60  # Detailed monitoring
   monitoring_role_arn              = aws_iam_role.rds_monitoring.arn
-  
+
   # Maintenance
   maintenance_window       = "sun:04:00-sun:05:00"
   auto_minor_version_upgrade = true
-  
+
   # Security
   publicly_accessible = false  # Do NOT expose to public internet
   vpc_security_group_ids = var.vpc_security_group_ids
   db_subnet_group_name   = aws_db_subnet_group.lakehouse.name
   skip_final_snapshot = false
   final_snapshot_identifier = "${var.identifier}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
-  
+
   # Parameters
   parameter_group_name = aws_db_parameter_group.lakehouse.name
-  
+
   # Deletion Protection
   deletion_protection = var.environment == "prod" ? true : false
-  
+
   tags = merge(
     var.tags,
     {
       Name = var.identifier
     }
   )
-  
+
   depends_on = [aws_iam_role_policy.rds_monitoring]
 }
 
@@ -114,7 +114,7 @@ resource "aws_db_parameter_group" "lakehouse" {
   family      = local.parameter_family
   name        = "${var.identifier}-params"
   description = "Parameter group for ${var.identifier}"
-  
+
   # Performance Tuning Parameters
   parameter {
     name  = "log_statement"
@@ -137,7 +137,7 @@ resource "aws_db_parameter_group" "lakehouse" {
 
 resource "aws_iam_role" "rds_monitoring" {
   name = "${var.identifier}-monitoring-role"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -150,7 +150,7 @@ resource "aws_iam_role" "rds_monitoring" {
       }
     ]
   })
-  
+
   tags = var.tags
 }
 
@@ -162,7 +162,7 @@ resource "aws_iam_role_policy_attachment" "rds_monitoring" {
 resource "aws_iam_role_policy" "rds_monitoring" {
   name = "${var.identifier}-monitoring-policy"
   role = aws_iam_role.rds_monitoring.id
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

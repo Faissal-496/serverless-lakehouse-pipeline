@@ -16,7 +16,7 @@ resource "aws_mq_broker" "this" {
   engine_type         = "RabbitMQ"
   engine_version      = var.engine_version
   host_instance_type  = var.instance_type
-  deployment_mode     = "SINGLE_INSTANCE"
+  deployment_mode     = var.deployment_mode
   publicly_accessible = var.publicly_accessible
   auto_minor_version_upgrade = true
 

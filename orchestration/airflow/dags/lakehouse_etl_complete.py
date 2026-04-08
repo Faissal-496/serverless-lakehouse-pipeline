@@ -1,96 +1,92 @@
 """
 Complete Lakehouse ETL Pipeline DAG
 =====================================
-
-Pipeline: Bronze → Silver → Gold
-Execution: Full daily ETL with data quality checks
-
-Environment-agnostic: switch between local Docker Spark cluster and AWS EMR
-by changing two environment variables only — no code change required.
-
-  Local Docker:  SPARK_MASTER=spark://spark-master:7077  SPARK_DEPLOY_MODE=client
-  AWS EMR:       SPARK_MASTER=yarn                       SPARK_DEPLOY_MODE=cluster
-
-DAG Structure:
-├── etl_start                      (Dummy start gate)
-├── bronze_ingest                  (Read CSV → Parquet in S3)
-│   └── silver_transform           (Consolidate & clean)
-│       └── gold_transform         (Aggregate & analytics)
-│           └── etl_end            (Dummy end gate)
+Pipeline: Bronze -> Silver -> Gold
 """
 
 from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-from airflow.operators.dummy import DummyOperator
+from airflow.operators.empty import EmptyOperator
 import os
-import sys
-
-# Make the lakehouse package importable at DAG-parse time so the builder can
-# be imported.  The /app/src bind-mount is present in all Airflow containers.
-if "/app/src" not in sys.path:
-    sys.path.insert(0, "/app/src")
-
-from lakehouse.core.spark_submit_builder import build_spark_submit_command
 
 # ==============================================================================
-# Configuration
+# Configuration — single source of truth
 # ==============================================================================
 
-SPARK_APP_BASE = "/app/src/lakehouse/jobs"
-AIRFLOW_PYTHON  = "/home/airflow/.local/bin/python3"
+SPARK_MASTER = os.getenv("SPARK_MASTER_URL", "spark://spark-master:7077")
+AIRFLOW_PYTHON = "/home/airflow/.local/bin/python3"
+S3_BUCKET = os.getenv("S3_BUCKET", "lakehouse-assurance-moto-prod")
+APP_ENV = os.getenv("APP_ENV", "prod")
 
-# Task env: process-level variables for the spark-submit subprocess.
-# SPARK_MASTER and SPARK_DEPLOY_MODE are read from the container env so the
-# builder picks them up at DAG-parse time (and at task execution time).
+# Select config file based on environment
+SPARK_CONF_FILE = os.getenv("SPARK_PROPERTIES_FILE", "/app/config/spark/spark-defaults-local.conf")
+
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "eu-west-3")
+
+# Only env vars that MUST be forwarded to driver/executor JVMs
+SPARK_ENV_CONF = [
+    "spark.driverEnv.PYTHONPATH=/app/src",
+    f"spark.driverEnv.PYSPARK_PYTHON={AIRFLOW_PYTHON}",
+    f"spark.driverEnv.PYSPARK_DRIVER_PYTHON={AIRFLOW_PYTHON}",
+    f"spark.driverEnv.APP_ENV={APP_ENV}",
+    "spark.driverEnv.CONFIG_DIR=/app/config",
+    "spark.driverEnv.DATA_BASE_PATH=/data",
+    f"spark.driverEnv.S3_BUCKET={S3_BUCKET}",
+    f"spark.driverEnv.AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID}",
+    f"spark.driverEnv.AWS_SECRET_ACCESS_KEY={AWS_SECRET_ACCESS_KEY}",
+    f"spark.driverEnv.AWS_DEFAULT_REGION={AWS_DEFAULT_REGION}",
+    "spark.executorEnv.PYTHONPATH=/app/src",
+    "spark.executorEnv.PYSPARK_PYTHON=/usr/bin/python3",
+    f"spark.executorEnv.APP_ENV={APP_ENV}",
+    "spark.executorEnv.CONFIG_DIR=/app/config",
+    "spark.executorEnv.DATA_BASE_PATH=/data",
+    f"spark.executorEnv.S3_BUCKET={S3_BUCKET}",
+    f"spark.executorEnv.AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID}",
+    f"spark.executorEnv.AWS_SECRET_ACCESS_KEY={AWS_SECRET_ACCESS_KEY}",
+    f"spark.executorEnv.AWS_DEFAULT_REGION={AWS_DEFAULT_REGION}",
+]
+
+_ENV_CONF = " ".join([f"--conf {c}" for c in SPARK_ENV_CONF])
+
 TASK_ENV = {
-    "PYTHONPATH":            "/app/src",
-    "PYSPARK_PYTHON":        AIRFLOW_PYTHON,
+    "PYTHONPATH": "/app/src",
+    "PYSPARK_PYTHON": AIRFLOW_PYTHON,
     "PYSPARK_DRIVER_PYTHON": AIRFLOW_PYTHON,
-    "APP_ENV":               os.getenv("APP_ENV", "prod"),
-    "CONFIG_DIR":            os.getenv("CONFIG_DIR", "/app/config"),
-    "DATA_BASE_PATH":        "/data",
-    "SPARK_MASTER":          os.getenv("SPARK_MASTER", "spark://spark-master:7077"),
-    "SPARK_DEPLOY_MODE":     os.getenv("SPARK_DEPLOY_MODE", "client"),
-    "AWS_ACCESS_KEY_ID":     os.getenv("AWS_ACCESS_KEY_ID", ""),
-    "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY", ""),
-    "AWS_DEFAULT_REGION":    os.getenv("AWS_DEFAULT_REGION", "eu-west-3"),
+    "APP_ENV": APP_ENV,
+    "CONFIG_DIR": "/app/config",
+    "DATA_BASE_PATH": "/data",
+    "S3_BUCKET": S3_BUCKET,
+    "SPARK_MASTER": SPARK_MASTER,
 }
 
 
-def _task_command(script_name: str) -> str:
-    """Build the bash_command for a BashOperator ETL task."""
-    label = script_name.replace("_job.py", "").upper()
-    spark_cmd = build_spark_submit_command(
-        app_file=f"{SPARK_APP_BASE}/{script_name}",
-        extra_args='--execution_date "$EXECUTION_DATE"',
-    )
+def _spark_submit_cmd(job_script: str) -> str:
     return f"""
         set -e
         EXECUTION_DATE='{{{{ ds }}}}'
 
-        echo "=========================================="
-        echo "[{label}] Started  (date: $EXECUTION_DATE)"
-        echo "=========================================="
-
-        {spark_cmd}
-
-        echo "=========================================="
-        echo "[{label}] Completed"
-        echo "=========================================="
+        spark-submit \
+            --master {SPARK_MASTER} \
+            --deploy-mode client \
+            --properties-file {SPARK_CONF_FILE} \
+            {_ENV_CONF} \
+            {job_script} \
+            --execution_date "$EXECUTION_DATE"
     """
 
 
 # ==============================================================================
-# DAG Definition
+# DAG
 # ==============================================================================
 
 dag = DAG(
     "lakehouse_etl_complete",
-    description="Complete Lakehouse ETL Pipeline: Bronze → Silver → Gold",
-    schedule_interval="0 2 * * *",   # Daily at 2 AM
+    description="Complete Lakehouse ETL Pipeline: Bronze -> Silver -> Gold",
+    schedule_interval="0 2 * * *",
     start_date=datetime(2026, 1, 1),
-    end_date=None,
     catchup=False,
     max_active_runs=1,
     tags=["lakehouse", "etl", "production"],
@@ -102,12 +98,11 @@ dag = DAG(
     },
 )
 
-start_task = DummyOperator(task_id="etl_start",  dag=dag)
-end_task   = DummyOperator(task_id="etl_end",    dag=dag)
+start_task = EmptyOperator(task_id="etl_start", dag=dag)
 
 bronze_ingest = BashOperator(
     task_id="bronze_ingest",
-    bash_command=_task_command("bronze_ingest_job.py"),
+    bash_command=_spark_submit_cmd("/app/src/lakehouse/jobs/bronze_ingest_job.py"),
     dag=dag,
     append_env=True,
     env=TASK_ENV,
@@ -115,7 +110,7 @@ bronze_ingest = BashOperator(
 
 silver_transform = BashOperator(
     task_id="silver_transform",
-    bash_command=_task_command("silver_transform_job.py"),
+    bash_command=_spark_submit_cmd("/app/src/lakehouse/jobs/silver_transform_job.py"),
     dag=dag,
     append_env=True,
     env=TASK_ENV,
@@ -123,15 +118,13 @@ silver_transform = BashOperator(
 
 gold_transform = BashOperator(
     task_id="gold_transform",
-    bash_command=_task_command("gold_transform_job.py"),
+    bash_command=_spark_submit_cmd("/app/src/lakehouse/jobs/gold_transform_job.py"),
     dag=dag,
     append_env=True,
     env=TASK_ENV,
 )
 
-# ==============================================================================
-# Task Dependencies
-# ==============================================================================
+end_task = EmptyOperator(task_id="etl_end", dag=dag)
 
 start_task >> bronze_ingest >> silver_transform >> gold_transform >> end_task
 

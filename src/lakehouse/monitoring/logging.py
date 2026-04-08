@@ -20,32 +20,28 @@ class StructuredLogger:
     def __init__(self, name: str, log_format: str = "json"):
         """
         Initialize structured logger.
-        
+
         Args:
             name: Logger name
             log_format: json or text
         """
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.INFO)
-        
+
         # Clear existing handlers
         self.logger.handlers = []
-        
+
         # Console handler
         console_handler = logging.StreamHandler()
-        
+
         if log_format == "json":
-            formatter = jsonlogger.JsonFormatter(
-                "%(timestamp)s %(level)s %(name)s %(message)s %(extra)s"
-            )
+            formatter = jsonlogger.JsonFormatter("%(timestamp)s %(level)s %(name)s %(message)s %(extra)s")
         else:
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
-        
+            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
         console_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
-        
+
         # Context for structured logging
         self.context: Dict[str, Any] = {
             "app_env": os.getenv("APP_ENV", "dev"),
@@ -70,7 +66,7 @@ class StructuredLogger:
         self.logger.error(
             message,
             exc_info=exc_info,
-            extra={"extra": json.dumps(extra)} if extra else {}
+            extra={"extra": json.dumps(extra)} if extra else {},
         )
 
     def warning(self, message: str, **extra):
@@ -99,7 +95,7 @@ def log_job_start(job_name: str, execution_id: str, execution_date: str):
         job_name=job_name,
         execution_id=execution_id,
         execution_date=execution_date,
-        event="job_start"
+        event="job_start",
     )
 
 
@@ -111,7 +107,7 @@ def log_job_end(job_name: str, execution_id: str, duration_seconds: float, statu
         execution_id=execution_id,
         duration_seconds=duration_seconds,
         status=status,
-        event="job_end"
+        event="job_end",
     )
 
 
@@ -119,7 +115,7 @@ def log_data_quality(
     dataset_name: str,
     total_rows: int,
     failed_checks: int,
-    check_results: Dict[str, Any]
+    check_results: Dict[str, Any],
 ):
     """Log data quality check results"""
     status = "PASS" if failed_checks == 0 else "FAIL"
@@ -130,16 +126,11 @@ def log_data_quality(
         failed_checks=failed_checks,
         status=status,
         details=check_results,
-        event="dq_check"
+        event="dq_check",
     )
 
 
-def log_partition_processed(
-    dataset_name: str,
-    partition_date: str,
-    row_count: int,
-    size_bytes: int
-):
+def log_partition_processed(dataset_name: str, partition_date: str, row_count: int, size_bytes: int):
     """Log partition processing"""
     logger.info(
         f"Partition processed: {dataset_name}/{partition_date}",
@@ -147,5 +138,5 @@ def log_partition_processed(
         partition_date=partition_date,
         row_count=row_count,
         size_mb=round(size_bytes / (1024 * 1024), 2),
-        event="partition_processed"
+        event="partition_processed",
     )

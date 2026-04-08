@@ -40,17 +40,38 @@ resource "aws_lb_target_group" "this" {
   tags = var.tags
 }
 
+# HTTP listener: forward when no HTTPS, redirect 301 when HTTPS enabled
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.this.arn
   port              = var.listener_port
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.this.arn
+    type = var.enable_https ? "redirect" : "forward"
+
+    # Forward to target group (when HTTPS is NOT enabled)
+    dynamic "forward" {
+      for_each = var.enable_https ? [] : [1]
+      content {
+        target_group {
+          arn = aws_lb_target_group.this.arn
+        }
+      }
+    }
+
+    # Redirect HTTP -> HTTPS (when HTTPS IS enabled)
+    dynamic "redirect" {
+      for_each = var.enable_https ? [1] : []
+      content {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
   }
 }
 
+# HTTPS listener (only when enabled)
 resource "aws_lb_listener" "https" {
   count             = var.enable_https ? 1 : 0
   load_balancer_arn = aws_lb.this.arn

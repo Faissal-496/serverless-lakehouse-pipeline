@@ -20,5 +20,6 @@ requirements/dev.txt
 tests/
 docs/
 ci/
+!ci/jenkins/
 terraform/
 orchestration/

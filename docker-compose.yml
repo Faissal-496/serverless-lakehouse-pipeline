@@ -1,21 +1,67 @@
-version: '3.8'
+# =============================================================================
+# Lakehouse Pipeline — Local Development Stack
+# =============================================================================
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: docker/airflow/Dockerfile
+  image: lakehouse-airflow:2.9.0
+  env_file:
+    - .env.docker
+  environment: &airflow-env
+    # --- Airflow Core ---
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__DEFAULT_TASK_RETRIES: "2"
+    AIRFLOW__CORE__DEFAULT_TASK_RETRY_DELAY_SEC: "300"
+    # --- Celery ---
+    AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5432/airflow
+    # --- Database ---
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql://airflow:airflow@postgres:5432/airflow
+    # --- Webserver ---
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_WEBSERVER_SECRET_KEY}
+    # --- Logging ---
+    AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/logs
+    # --- Python / Spark ---
+    PYTHONPATH: /app/src
+    SPARK_MASTER_URL: spark://spark-master:7077
+    SPARK_HOME: /opt/spark
+    PYSPARK_PYTHON: /home/airflow/.local/bin/python3
+    PYSPARK_DRIVER_PYTHON: /home/airflow/.local/bin/python3
+    # --- AWS (resolved from .env) ---
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+    S3_BUCKET: ${S3_BUCKET}
+    # --- Lakehouse ---
+    APP_ENV: prod
+    CONFIG_DIR: /app/config
+    DATA_BASE_PATH: /data
+    GLUE_DATABASE: lakehouse_assurance
+  volumes: &airflow-volumes
+    - ./orchestration/airflow/dags:/opt/airflow/dags:ro
+    - ./src:/app/src:ro
+    - ./config:/app/config:ro
+    - airflow_logs:/opt/airflow/logs
+  networks:
+    - lakehouse_network
 
 services:
-  # ============================================================================
-  # BUILD-TIME SERVICE: Spark Base Image
-  # Creates the unified lakehouse-spark-base image used by master and workers
-  # ============================================================================
+  # ==========================================================================
+  # Infrastructure
+  # ==========================================================================
   spark-base-builder:
     image: lakehouse-spark-base:latest
     build:
       context: .
       dockerfile: docker/spark/Dockerfile.base
-    # This service doesn't need to run, just provides the base image
-    command: echo "Base image built successfully"
+    command: echo "Base image built"
     networks:
       - lakehouse_network
 
-  # PostgreSQL - Airflow metadata + task state
   postgres:
     image: postgres:15-alpine
     container_name: lakehouse-postgres
@@ -35,7 +81,6 @@ services:
     networks:
       - lakehouse_network
 
-  # Redis - Celery broker
   redis:
     image: redis:7-alpine
     container_name: lakehouse-redis
@@ -49,7 +94,9 @@ services:
     networks:
       - lakehouse_network
 
-  # Spark Master
+  # ==========================================================================
+  # Spark Cluster — reduced for 16 GB laptop
+  # ==========================================================================
   spark-master:
     build:
       context: .
@@ -67,23 +114,20 @@ services:
       SPARK_MASTER_WEBUI_PORT: 8080
       SPARK_LOCAL_IP: spark-master
     ports:
-      - "7077:7077"  # Spark RPC
-      - "8084:8080"  # Spark Web UI
+      - "7077:7077"
+      - "8084:8080"
     volumes:
       - ./config:/app/config:ro
-      - spark_data:/tmp/spark_output
-      - spark_logs:/opt/lakehouse/logs
       - ./src:/app/src:ro
     networks:
       - lakehouse_network
     healthcheck:
-      test: ["CMD", "bash", "-c", "curl -sf http://$(hostname -i):8080/ > /dev/null"]
-      interval: 15s
-      timeout: 10s
+      test: ["CMD", "nc", "-z", "spark-master", "7077"]
+      interval: 10s
+      timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 30s
 
-  # Spark Worker 1
   spark-worker-1:
     build:
       context: .
@@ -102,26 +146,23 @@ services:
       SPARK_WORKER_PORT: 7078
       SPARK_WORKER_WEBUI_PORT: 8081
       SPARK_LOCAL_IP: spark-worker-1
-      SPARK_WORKER_CORES: 2
-      SPARK_WORKER_MEMORY: 2g
+      SPARK_WORKER_CORES: 1
+      SPARK_WORKER_MEMORY: 1g
     ports:
-      - "7078:7078"  # Spark Worker RPC
-      - "8081:8081"  # Spark Worker WebUI
+      - "7078:7078"
+      - "8081:8081"
     volumes:
       - ./config:/app/config:ro
-      - spark_data:/tmp/spark_output
-      - spark_logs:/opt/lakehouse/logs
       - ./src:/app/src:ro
     networks:
       - lakehouse_network
     healthcheck:
-      test: ["CMD", "bash", "-c", "curl -sf http://$(hostname -i):8081/ > /dev/null"]
-      interval: 15s
-      timeout: 10s
+      test: ["CMD", "nc", "-z", "spark-worker-1", "7078"]
+      interval: 10s
+      timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 30s
 
-  # Spark Worker 2
   spark-worker-2:
     build:
       context: .
@@ -140,66 +181,43 @@ services:
       SPARK_WORKER_PORT: 7079
       SPARK_WORKER_WEBUI_PORT: 8082
       SPARK_LOCAL_IP: spark-worker-2
-      SPARK_WORKER_CORES: 2
-      SPARK_WORKER_MEMORY: 2g
+      SPARK_WORKER_CORES: 1
+      SPARK_WORKER_MEMORY: 1g
     ports:
-      - "7079:7079"  # Spark Worker RPC
-      - "8082:8082"  # Spark Worker WebUI
+      - "7079:7079"
+      - "8082:8082"
     volumes:
       - ./config:/app/config:ro
-      - spark_data:/tmp/spark_output
-      - spark_logs:/opt/lakehouse/logs
       - ./src:/app/src:ro
     networks:
       - lakehouse_network
     healthcheck:
-      test: ["CMD", "bash", "-c", "curl -sf http://$(hostname -i):8082/ > /dev/null"]
-      interval: 15s
-      timeout: 10s
+      test: ["CMD", "nc", "-z", "spark-worker-2", "7079"]
+      interval: 10s
+      timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 30s
 
-  # Airflow DB init
+  # ==========================================================================
+  # Airflow
+  # ==========================================================================
   airflow-db-init:
-    build:
-      context: .
-      dockerfile: docker/airflow/Dockerfile
-    image: lakehouse-airflow:2.9.0
+    <<: *airflow-common
     container_name: lakehouse-airflow-db-init
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    env_file:
-      - .env.docker
-    environment:
-      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5432/airflow
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql://airflow:airflow@postgres:5432/airflow
-      AIRFLOW__WEBSERVER__SECRET_KEY: secretkey
-      # AWS Credentials
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-      S3_BUCKET: ${S3_BUCKET}
-    volumes:
-      - ./orchestration/airflow/dags:/opt/airflow/dags:ro
-      - ./src:/app/src:ro
-      - airflow_logs:/opt/airflow/logs
-    command: bash -c "airflow db init && airflow users create --username airflow --password airflow --firstname Airflow --lastname Admin --role Admin --email admin@example.com || true"
-    networks:
-      - lakehouse_network
+    command: >
+      bash -c "airflow db init &&
+               airflow users create
+                 --username airflow --password airflow
+                 --firstname Airflow --lastname Admin
+                 --role Admin --email admin@example.com || true"
 
-  # Airflow Webserver
   airflow-webserver:
-    build:
-      context: .
-      dockerfile: docker/airflow/Dockerfile
-    image: lakehouse-airflow:2.9.0
+    <<: *airflow-common
     container_name: lakehouse-airflow-webserver
     depends_on:
       postgres:
@@ -208,116 +226,30 @@ services:
         condition: service_healthy
       airflow-db-init:
         condition: service_completed_successfully
-    env_file:
-      - .env.docker
-    environment:
-      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-      AIRFLOW__CORE__DEFAULT_TASK_RETRIES: '2'
-      AIRFLOW__CORE__DEFAULT_TASK_RETRY_DELAY_SEC: '300'
-      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5432/airflow
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql://airflow:airflow@postgres:5432/airflow
-      AIRFLOW__WEBSERVER__SECRET_KEY: secretkey
-      AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/logs
-      # Python environment
-      PYTHONPATH: /app/src:${PYTHONPATH:-}
-      # Spark configuration
-      SPARK_MASTER_URL: spark://spark-master:7077
-      SPARK_HOME: /opt/spark
-      PYSPARK_PYTHON: /home/airflow/.local/bin/python3
-      PYSPARK_DRIVER_PYTHON: /home/airflow/.local/bin/python3
-      # AWS Credentials
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-      S3_BUCKET: ${S3_BUCKET}
-      # Lakehouse configuration
-      APP_ENV: prod
-      CONFIG_DIR: /app/config
-      SPARK_MASTER: spark://spark-master:7077
-      SPARK_DEPLOY_MODE: client
-      GLUE_DATABASE: lakehouse_assurance
-    volumes:
-      - ./orchestration/airflow/dags:/opt/airflow/dags:ro
-      - ./src:/app/src:ro
-      - ./config:/app/config:ro
-      - spark_data:/tmp/spark_output
-      - airflow_logs:/opt/airflow/logs
     ports:
       - "8080:8080"
     command: webserver
-    networks:
-      - lakehouse_network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
 
-  # Airflow Scheduler
   airflow-scheduler:
-    build:
-      context: .
-      dockerfile: docker/airflow/Dockerfile
-    image: lakehouse-airflow:2.9.0
+    <<: *airflow-common
     container_name: lakehouse-airflow-scheduler
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      airflow-webserver:
-        condition: service_healthy
-    env_file:
-      - .env.docker
-    environment:
-      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-      AIRFLOW__CORE__DEFAULT_TASK_RETRIES: '2'
-      AIRFLOW__CORE__DEFAULT_TASK_RETRY_DELAY_SEC: '300'
-      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5432/airflow
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql://airflow:airflow@postgres:5432/airflow
-      AIRFLOW__WEBSERVER__SECRET_KEY: secretkey
-      AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/logs
-      # Python environment
-      PYTHONPATH: /app/src:${PYTHONPATH:-}
-      # Spark configuration
-      SPARK_MASTER_URL: spark://spark-master:7077
-      SPARK_HOME: /opt/spark
-      PYSPARK_PYTHON: /home/airflow/.local/bin/python3
-      PYSPARK_DRIVER_PYTHON: /home/airflow/.local/bin/python3
-      # AWS Credentials
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-      S3_BUCKET: ${S3_BUCKET}
-      # Lakehouse configuration
-      APP_ENV: prod
-      CONFIG_DIR: /app/config
-      SPARK_MASTER: spark://spark-master:7077
-      SPARK_DEPLOY_MODE: client
-      GLUE_DATABASE: lakehouse_assurance
-    volumes:
-      - ./orchestration/airflow/dags:/opt/airflow/dags:ro
-      - ./src:/app/src:ro
-      - ./config:/app/config:ro
-      - spark_data:/tmp/spark_output
-      - spark_logs:/opt/lakehouse/logs
-      - airflow_logs:/opt/airflow/logs
+      airflow-db-init:
+        condition: service_completed_successfully
     command: scheduler
-    networks:
-      - lakehouse_network
 
-  # Airflow Worker 1
   airflow-worker-1:
-    build:
-      context: .
-      dockerfile: docker/airflow/Dockerfile
-    image: lakehouse-airflow:2.9.0
+    <<: *airflow-common
     container_name: lakehouse-airflow-worker-1
     depends_on:
       postgres:
@@ -325,55 +257,11 @@ services:
       redis:
         condition: service_healthy
       spark-master:
-        condition: service_started
-    env_file:
-      - .env.docker
-    environment:
-      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-      AIRFLOW__CORE__DEFAULT_TASK_RETRIES: '2'
-      AIRFLOW__CORE__DEFAULT_TASK_RETRY_DELAY_SEC: '300'
-      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5432/airflow
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql://airflow:airflow@postgres:5432/airflow
-      AIRFLOW__WEBSERVER__SECRET_KEY: secretkey
-      AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/logs
-      # Python environment
-      PYTHONPATH: /app/src:${PYTHONPATH:-}
-      # Spark configuration
-      SPARK_MASTER_URL: spark://spark-master:7077
-      SPARK_HOME: /opt/spark
-      PYSPARK_PYTHON: /home/airflow/.local/bin/python3
-      PYSPARK_DRIVER_PYTHON: /home/airflow/.local/bin/python3
-      # AWS Credentials
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-      S3_BUCKET: ${S3_BUCKET}
-      # Lakehouse configuration
-      APP_ENV: prod
-      CONFIG_DIR: /app/config
-      SPARK_MASTER: spark://spark-master:7077
-      SPARK_DEPLOY_MODE: client
-      GLUE_DATABASE: lakehouse_assurance
-    volumes:
-      - ./orchestration/airflow/dags:/opt/airflow/dags:ro
-      - ./src:/app/src:ro
-      - ./config:/app/config:ro
-      - spark_data:/tmp/spark_output
-      - spark_logs:/opt/lakehouse/logs
-      - airflow_logs:/opt/airflow/logs
-    command: celery worker --queues=default
-    networks:
-      - lakehouse_network
+        condition: service_healthy
+    command: celery worker --queues=default --concurrency=4
 
-  # Airflow Worker 2
   airflow-worker-2:
-    build:
-      context: .
-      dockerfile: docker/airflow/Dockerfile
-    image: lakehouse-airflow:2.9.0
+    <<: *airflow-common
     container_name: lakehouse-airflow-worker-2
     depends_on:
       postgres:
@@ -381,54 +269,49 @@ services:
       redis:
         condition: service_healthy
       spark-master:
-        condition: service_started
+        condition: service_healthy
+    command: celery worker --queues=default --concurrency=4
+
+  # ==========================================================================
+  # Jenkins (single controller for local — HA agents via Docker Plugin)
+  # ==========================================================================
+  jenkins-controller-1:
+    build:
+      context: .
+      dockerfile: docker/jenkins/Dockerfile
+    image: lakehouse-jenkins:lts
+    container_name: lakehouse-jenkins-1
+    hostname: jenkins-1
     env_file:
       - .env.docker
     environment:
-      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-      AIRFLOW__CORE__DEFAULT_TASK_RETRIES: '2'
-      AIRFLOW__CORE__DEFAULT_TASK_RETRY_DELAY_SEC: '300'
-      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5432/airflow
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql://airflow:airflow@postgres:5432/airflow
-      AIRFLOW__WEBSERVER__SECRET_KEY: secretkey
-      AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/logs
-      # Python environment
-      PYTHONPATH: /app/src:${PYTHONPATH:-}
-      # Spark configuration
-      SPARK_MASTER_URL: spark://spark-master:7077
-      SPARK_HOME: /opt/spark
-      PYSPARK_PYTHON: /home/airflow/.local/bin/python3
-      PYSPARK_DRIVER_PYTHON: /home/airflow/.local/bin/python3
-      # AWS Credentials
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-      S3_BUCKET: ${S3_BUCKET}
-      # Lakehouse configuration
-      APP_ENV: prod
-      CONFIG_DIR: /app/config
-      SPARK_MASTER: spark://spark-master:7077
-      SPARK_DEPLOY_MODE: client
-      GLUE_DATABASE: lakehouse_assurance
+      JENKINS_ADMIN_USER: ${JENKINS_ADMIN_USER:-admin}
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:-admin}
+      JAVA_OPTS: >-
+        -Djenkins.install.runSetupWizard=false
+        -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true
+        -Xmx512m
+      DOCKER_HOST: unix:///var/run/docker.sock
     volumes:
-      - ./orchestration/airflow/dags:/opt/airflow/dags:ro
-      - ./src:/app/src:ro
-      - ./config:/app/config:ro
-      - spark_data:/tmp/spark_output
-      - spark_logs:/opt/lakehouse/logs
-      - airflow_logs:/opt/airflow/logs
-    command: celery worker --queues=default
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace:ro
+    ports:
+      - "9080:8080"
+      - "50000:50000"
     networks:
       - lakehouse_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
 
 volumes:
   postgres_data:
-  spark_data:
-  spark_logs:
   airflow_logs:
+  jenkins_home:
 
 networks:
   lakehouse_network:

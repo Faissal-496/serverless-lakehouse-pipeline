@@ -18,37 +18,37 @@ schema:
       type: "int"
       nullable: false
       description: "Unique customer ID"
-    
+
     - name: "age_client"
       type: "int"
       nullable: true
       description: "Age of customer (calculated from birth year)"
-    
+
     - name: "client_jeune"
       type: "int"
       nullable: true
       description: "Indicator: 1=young customer (<30), 0=otherwise"
-    
+
     - name: "sexsoc"
       type: "string"
       nullable: true
       description: "Gender (1=Male, 2=Female, 3=Corporate)"
-    
+
     - name: "cspsoc"
       type: "string"
       nullable: true
       description: "Socio-professional category"
-    
+
     - name: "sitmat"
       type: "string"
       nullable: true
       description: "Marital status"
-    
+
     - name: "sitpav1"
       type: "string"
       nullable: true
       description: "Housing type (pavilion status)"
-    
+
     - name: "age_segment"
       type: "string"
       nullable: true

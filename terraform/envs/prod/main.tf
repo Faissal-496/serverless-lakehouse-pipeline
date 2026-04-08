@@ -6,10 +6,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
   }
 }
 
@@ -21,13 +17,12 @@ provider "aws" {
       var.tags,
       var.additional_tags,
       {
+        CreatedAt  = timestamp()
         DeployedBy = "Terraform"
       }
     )
   }
 }
-
-provider "random" {}
 
 # ==========================================================================
 # DATA SOURCES
@@ -411,7 +406,7 @@ module "jenkins_alb" {
   target_port         = 8080
   listener_port       = 80
   health_check_path   = "/login"
-  enable_https        = false
+  enable_https        = true
   certificate_arn     = var.alb_certificate_arn
   ssl_policy          = var.alb_ssl_policy
 
@@ -430,7 +425,7 @@ module "airflow_alb" {
   target_port         = 8080
   listener_port       = 80
   health_check_path   = "/health"
-  enable_https        = false
+  enable_https        = true
   certificate_arn     = var.alb_certificate_arn
   ssl_policy          = var.alb_ssl_policy
 

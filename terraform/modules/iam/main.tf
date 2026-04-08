@@ -1,7 +1,7 @@
 # ============================================================================
 # TERRAFORM MODULE: IAM ROLES AND POLICIES
 # ============================================================================
-# 
+#
 # Least-privilege access for ETL jobs, Spark, and Airflow
 #
 
@@ -20,7 +20,7 @@ terraform {
 
 resource "aws_iam_role" "lakehouse_etl" {
   name = "${var.name_prefix}-etl-role"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -49,7 +49,7 @@ resource "aws_iam_role" "lakehouse_etl" {
       }
     ]
   })
-  
+
   tags = var.tags
 }
 
@@ -59,7 +59,7 @@ resource "aws_iam_role" "lakehouse_etl" {
 
 resource "aws_iam_policy" "s3_access" {
   name = "${var.name_prefix}-s3-policy"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -90,7 +90,7 @@ resource "aws_iam_policy" "s3_access" {
       }
     ]
   })
-  
+
   tags = var.tags
 }
 
@@ -105,7 +105,7 @@ resource "aws_iam_role_policy_attachment" "s3_access" {
 
 resource "aws_iam_policy" "cloudwatch_logs" {
   name = "${var.name_prefix}-cloudwatch-logs-policy"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -122,7 +122,7 @@ resource "aws_iam_policy" "cloudwatch_logs" {
       }
     ]
   })
-  
+
   tags = var.tags
 }
 
@@ -137,7 +137,7 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_logs" {
 
 resource "aws_iam_policy" "secrets_manager" {
   name = "${var.name_prefix}-secrets-policy"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -154,7 +154,7 @@ resource "aws_iam_policy" "secrets_manager" {
       }
     ]
   })
-  
+
   tags = var.tags
 }
 
@@ -169,7 +169,7 @@ resource "aws_iam_role_policy_attachment" "secrets_manager" {
 
 resource "aws_iam_policy" "glue_catalog" {
   name = "${var.name_prefix}-glue-policy"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -192,7 +192,7 @@ resource "aws_iam_policy" "glue_catalog" {
       }
     ]
   })
-  
+
   tags = var.tags
 }
 

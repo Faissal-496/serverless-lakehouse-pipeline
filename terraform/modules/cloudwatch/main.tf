@@ -18,7 +18,7 @@ terraform {
 resource "aws_cloudwatch_log_group" "spark" {
   name              = "/aws/lakehouse/spark"
   retention_in_days = var.log_retention_days
-  
+
   tags = merge(
     var.tags,
     {
@@ -31,7 +31,7 @@ resource "aws_cloudwatch_log_group" "spark" {
 resource "aws_cloudwatch_log_group" "airflow" {
   name              = "/aws/lakehouse/airflow"
   retention_in_days = var.log_retention_days
-  
+
   tags = merge(
     var.tags,
     {
@@ -47,7 +47,7 @@ resource "aws_cloudwatch_log_group" "airflow" {
 
 resource "aws_sns_topic" "alerts" {
   name = "${var.name_prefix}-alerts"
-  
+
   tags = merge(
     var.tags,
     {

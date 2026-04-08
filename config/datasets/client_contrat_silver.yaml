@@ -9,9 +9,9 @@ update_frequency: "daily"
 owner: "data-platform"
 
 upstream_datasets:
-  - "contrat1"
-  - "contrat2"
-  - "client"
+  - "Contrat1"
+  - "Contrat2"
+  - "Client"
 
 schema:
   version: "1.0"
@@ -20,42 +20,42 @@ schema:
       type: "int"
       nullable: false
       description: "Customer ID"
-    
+
     - name: "nucon"
       type: "int"
       nullable: false
       description: "Contract ID"
-    
+
     - name: "type_vehicule"
       type: "string"
       nullable: false
       description: "Vehicle type (Auto, Moto, Cyclo, Inconnu)"
-    
+
     - name: "etat_contrat_libelle"
       type: "string"
       nullable: false
       description: "Contract status in French"
-    
+
     - name: "prmaco"
       type: "double"
       nullable: false
       description: "Annual premium (standardized)"
-    
+
     - name: "contrat_actif"
       type: "int"
       nullable: false
       description: "Is contract active (1=yes, 0=no)"
-    
+
     - name: "age_client"
       type: "int"
       nullable: true
       description: "Customer age calculated"
-    
+
     - name: "nb_garanties"
       type: "int"
       nullable: false
       description: "Number of guarantees"
-    
+
     - name: "anciennete_contrat"
       type: "int"
       nullable: true
@@ -65,17 +65,17 @@ quality_rules:
   - rule: "not_null"
     columns: ["nusoc", "nucon", "type_vehicule", "prmaco"]
     severity: "error"
-  
+
   - rule: "no_duplicates"
     columns: ["nusoc", "nucon"]
     severity: "error"
-  
+
   - rule: "value_range"
     column: "prmaco"
     min: 0
     max: 10000
     severity: "warning"
-  
+
   - rule: "value_in"
     column: "type_vehicule"
     values: ["Auto", "Moto", "Cyclo", "Inconnu"]

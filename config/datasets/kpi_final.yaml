@@ -18,57 +18,57 @@ schema:
       type: "string"
       nullable: false
       description: "Name of the KPI metric"
-    
+
     - name: "kpi_value"
       type: "double"
       nullable: false
       description: "Numerical value of the KPI"
-    
+
     - name: "kpi_category"
       type: "string"
       nullable: true
       description: "Category (Portfolio, Customer, Performance, etc.)"
-    
+
     - name: "total_active_contracts"
       type: "long"
       nullable: true
       description: "Total number of active (En cours) contracts"
-    
+
     - name: "total_clients"
       type: "long"
       nullable: true
       description: "Total unique customers"
-    
+
     - name: "portfolio_value"
       type: "double"
       nullable: true
       description: "Total portfolio value (sum of all premiums)"
-    
+
     - name: "avg_premium_per_customer"
       type: "double"
       nullable: true
       description: "Average premium amount per customer"
-    
+
     - name: "retention_rate_pct"
       type: "double"
       nullable: true
       description: "Contract retention rate percentage (active/total)"
-    
+
     - name: "guarantee_penetration_pct"
       type: "double"
       nullable: true
       description: "Percentage of contracts with guarantees"
-    
+
     - name: "young_customer_pct"
       type: "double"
       nullable: true
       description: "Percentage of customers under 30 years old"
-    
+
     - name: "motorcycle_pct"
       type: "double"
       nullable: true
       description: "Percentage of motorcycle contracts"
-    
+
     - name: "avg_guarantees_per_contract"
       type: "double"
       nullable: true

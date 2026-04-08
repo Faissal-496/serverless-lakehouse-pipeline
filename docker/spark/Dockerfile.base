@@ -19,7 +19,7 @@ ENV PATH=$SPARK_HOME/bin:/home/spark/.local/bin:$PATH
 WORKDIR /opt/lakehouse
 
 # ============================================================================
-# System Dependencies + Tools for healthcheck  
+# System Dependencies + Tools for healthcheck
 # ============================================================================
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
