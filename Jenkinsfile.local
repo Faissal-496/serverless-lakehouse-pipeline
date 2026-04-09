@@ -106,7 +106,7 @@ pipeline {
     }
 
     post {
-        success { echo " Local CI pipeline PASSED on branch ${env.GIT_BRANCH}" }
-        failure { echo " Local CI pipeline FAILED on branch ${env.GIT_BRANCH}" }
+        success { echo "Local CI pipeline PASSED on branch ${env.GIT_BRANCH}" }
+        failure { echo "Local CI pipeline FAILED on branch ${env.GIT_BRANCH}" }
     }
 }
