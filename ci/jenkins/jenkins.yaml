@@ -27,7 +27,7 @@ jenkins:
               image: "jenkins/agent:latest-jdk17"
               mounts:
                 - "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
-                - "type=bind,source=/home/fisal_bel/projects/data_projects/v0.1.1/serverless-lakehouse-pipeline,target=/workspace,readonly"
+                - "type=bind,source=/home/fisal_bel/projects/data_projects/v0.1.1/serverless-lakehouse-pipeline,target=/workspace,readonly" # attention à ce schemin c'est juste pour le local (à adapter pour le CI en fonction de l'endroit où le repo est cloné)
               environmentsString: |
                 PYTHONPATH=/workspace/src
             remoteFs: "/home/jenkins/agent"
