@@ -3,131 +3,115 @@
 """
 Gold Transformation Job
 Creates analytics-ready datasets for BI and dashboards
-
-Job: gold_transform_job.py
-Execution: spark-submit \
-    --py-files /opt/lakehouse/src \
-    /opt/lakehouse/src/lakehouse/jobs/gold_transform_job.py
 """
 
 from pyspark.sql.functions import (
-    col, when, count, avg, sum as spark_sum, desc, round as spark_round,
-    countDistinct, max as spark_max, min as spark_min
+    col,
+    when,
+    count,
+    avg,
+    sum as spark_sum,
+    desc,
+    round as spark_round,
+    countDistinct,
 )
 from lakehouse.jobs.base_job import SparkJob
 from lakehouse.monitoring.logging import logger
-from lakehouse.monitoring.metrics import record_rows_processed, S3OperationMetricsContext
+from lakehouse.monitoring.metrics import (
+    record_rows_processed,
+    S3OperationMetricsContext,
+)
 
 
 class GoldTransformJob(SparkJob):
     """Silver to Gold transformation for analytics"""
-    
+
     JOB_NAME = "gold_transform"
-    
+
     def run(self):
-        """Execute Silver to Gold transformation"""
         logger.info("Starting Gold Transformation")
-        
-        # Read Silver data
-        silver_path = self.config.get_s3_layer_path("silver", "Client_contrat_silver")
+
+        def s3_path(layer, dataset):
+            return self.config.get_s3_layer_path(layer, dataset)
+
+        # Read Silver and cache
+        silver_path = s3_path("silver", "Client_contrat_silver")
         df_silver = self.spark.read.parquet(silver_path)
-        total_records = df_silver.count()
-        
-        logger.info(f"Silver data loaded: {total_records} records")
-        
-        # = GOLD 1: CLIENT PROFILE = #
+        df_silver.cache()
+        logger.info("Silver data loaded and cached")
+
+        # GOLD 1: CLIENT PROFILE
         logger.info("Creating Client Profile Analysis...")
-        df_client_profile = df_silver.select(
-            "nusoc", "age_client", "client_jeune", "sexsoc",
-            "cspsoc", "sitmat", "sitpav1"
-        ).dropDuplicates(["nusoc"])
-        
-        df_client_profile = df_client_profile.withColumn(
-            "age_segment",
-            when(col("age_client") < 25, "18-24")
-            .when(col("age_client") < 35, "25-34")
-            .when(col("age_client") < 45, "35-44")
-            .when(col("age_client") < 55, "45-54")
-            .when(col("age_client") < 65, "55-64")
-            .otherwise("65+")
+        df_client_profile = (
+            df_silver.select(
+                "nusoc",
+                "age_client",
+                "client_jeune",
+                "sexsoc",
+                "cspsoc",
+                "sitmat",
+                "sitpav1",
+            )
+            .dropDuplicates(["nusoc"])
+            .withColumn(
+                "age_segment",
+                when(col("age_client") < 25, "18-24")
+                .when(col("age_client") < 35, "25-34")
+                .when(col("age_client") < 45, "35-44")
+                .when(col("age_client") < 55, "45-54")
+                .when(col("age_client") < 65, "55-64")
+                .otherwise("65+"),
+            )
         )
-        
+
         client_count = df_client_profile.count()
         logger.info(f"Total unique clients: {client_count}")
-        
-        gold_client_path = self.config.get_s3_layer_path("gold", "client_profile_analysis")
+
+        gold_client_path = s3_path("gold", "client_profile_analysis")
         with S3OperationMetricsContext("write_gold_client"):
-            df_client_profile.write.mode("overwrite").parquet(gold_client_path)
+            df_client_profile.coalesce(4).write.mode("overwrite").parquet(gold_client_path)
         logger.info(f"Client profile saved: {gold_client_path}")
-        
-        # = GOLD 2: CONTRACT ANALYSIS = #
+
+        # GOLD 2: CONTRACT ANALYSIS
         logger.info("Creating Contract Analysis...")
-        df_contract_vehicle = df_silver.groupBy("type_vehicule").agg(
-            count("nucon").alias("total_contracts"),
-            countDistinct("nusoc").alias("unique_clients"),
-            spark_round(avg("prmaco"), 2).alias("avg_premium"),
-            spark_round(spark_sum("prmaco"), 0).alias("total_premium"),
-            spark_round(avg("anciennete_contrat"), 1).alias("avg_seniority"),
-            spark_round(avg("nb_garanties"), 1).alias("avg_guarantees")
-        ).orderBy(desc("total_contracts"))
-        
-        gold_contract_path = self.config.get_s3_layer_path("gold", "contract_analysis")
-        with S3OperationMetricsContext("write_gold_contract"):
-            df_contract_vehicle.write.mode("overwrite").parquet(gold_contract_path)
-        logger.info(f"Contract analysis saved: {gold_contract_path}")
-        
-        # = GOLD 3: KPI DASHBOARD = #
-        logger.info("Creating KPI Dashboard...")
-        
-        total_contracts = df_silver.count()
-        active_contracts = df_silver.filter(col("contrat_actif") == 1).count()
-        inactive_contracts = total_contracts - active_contracts
-        
-        avg_premium = df_silver.agg(avg("prmaco")).collect()[0][0] or 0.0
-        total_premium = df_silver.agg(spark_sum("prmaco")).collect()[0][0] or 0.0
-        
-        retention_rate = (active_contracts / total_contracts * 100) if total_contracts > 0 else 0
-        
-        # Create KPI record
-        from pyspark.sql import Row
-        kpi_row = Row(
-            metric_date=self.execution_date_str,
-            total_contracts=total_contracts,
-            active_contracts=active_contracts,
-            inactive_contracts=inactive_contracts,
-            retention_rate=round(retention_rate, 2),
-            avg_premium=round(avg_premium, 2),
-            total_premium=round(total_premium, 0),
-            unique_customers=client_count
+        df_contract_vehicle = (
+            df_silver.groupBy("type_vehicule")
+            .agg(
+                count("nucon").alias("total_contracts"),
+                countDistinct("nusoc").alias("unique_clients"),
+                spark_round(avg("prmaco"), 2).alias("avg_premium"),
+                spark_round(spark_sum("prmaco"), 0).alias("total_premium"),
+                spark_round(avg("anciennete_contrat"), 1).alias("avg_seniority"),
+                spark_round(avg("nb_garanties"), 1).alias("avg_guarantees"),
+            )
+            .orderBy(desc("total_contracts"))
         )
-        
-        df_kpi = self.spark.createDataFrame([kpi_row])
-        
-        gold_kpi_path = self.config.get_s3_layer_path("gold", "kpi_dashboard")
-        with S3OperationMetricsContext("write_gold_kpi"):
-            df_kpi.write.mode("append").parquet(gold_kpi_path)
-        
-        logger.info(f"KPI Dashboard saved: {gold_kpi_path}")
-        logger.info(f"  Total Contracts: {total_contracts}")
-        logger.info(f"  Active: {active_contracts} ({retention_rate:.2f}%)")
-        logger.info(f"  Total Premium: €{total_premium:,.0f}")
-        
-        # Record metrics
+
+        df_contract_vehicle.cache()
+        contract_count = df_contract_vehicle.count()
+
+        gold_contract_path = s3_path("gold", "contract_analysis")
+        with S3OperationMetricsContext("write_gold_contract"):
+            df_contract_vehicle.coalesce(1).write.mode("overwrite").parquet(gold_contract_path)
+        logger.info(f"Contract analysis saved: {gold_contract_path}")
+
+        df_contract_vehicle.unpersist()
+        df_silver.unpersist()
+
         record_rows_processed("gold", "client_profile_analysis", client_count)
-        record_rows_processed("gold", "contract_analysis", df_contract_vehicle.count())
-        record_rows_processed("gold", "kpi_dashboard", 1)
-        
+        record_rows_processed("gold", "contract_analysis", contract_count)
+
         logger.info("Gold Transformation completed successfully")
 
 
 if __name__ == "__main__":
     import sys
-    
+
     execution_date = None
     for i, arg in enumerate(sys.argv[1:]):
         if arg == "--execution_date" and i + 2 < len(sys.argv):
             execution_date = sys.argv[i + 2]
-    
+
     job = GoldTransformJob(execution_date=execution_date)
     success = job.execute()
     sys.exit(0 if success else 1)

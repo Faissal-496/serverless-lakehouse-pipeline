@@ -1,0 +1,112 @@
+// ============================================================================
+// Lakehouse Local CI Pipeline
+// ============================================================================
+// Triggered by: GitHub webhook on push to dev branch
+// Stages: Setup → Lint → Test → Docker Verify
+// ============================================================================
+
+pipeline {
+    agent { label 'docker-agent' }
+
+    triggers {
+        githubPush()
+    }
+
+    options {
+        timestamps()
+        timeout(time: 15, unit: 'MINUTES')
+    }
+
+    environment {
+        PYTHONPATH = '/workspace/src'
+    }
+
+    stages {
+        stage('Branch Filter') {
+            steps {
+                script {
+                    def branch = env.GIT_BRANCH?.replaceAll('origin/', '') ?: ''
+                    if (branch != 'dev') {
+                        echo "Skipping build: branch '${branch}' is not 'dev'"
+                        currentBuild.result = 'NOT_BUILT'
+                        error("Not the dev branch — skipping.")
+                    }
+                    echo "Building branch: ${branch}"
+                }
+            }
+        }
+
+        stage('Setup') {
+            steps {
+                sh '''
+                    echo "=== Installing Python toolchain ==="
+                    apt-get update -qq && \
+                    apt-get install -y -qq python3 python3-pip python3-venv > /dev/null 2>&1
+                    python3 -m pip install --break-system-packages --no-cache-dir -q \
+                        autoflake==2.2.1 \
+                        black==23.12.0 \
+                        flake8==6.1.0 \
+                        pytest==7.4.3 \
+                        pyyaml==6.0.1 \
+                        python-dotenv==1.0.0 \
+                        tenacity==8.2.3 \
+                        boto3 \
+                        python-json-logger==2.0.7
+                    echo "=== Setup complete ==="
+                '''
+            }
+        }
+
+        stage('Lint') {
+            parallel {
+                stage('Autoflake') {
+                    steps {
+                        sh '''
+                            python3 -m autoflake \
+                                --check \
+                                --remove-all-unused-imports \
+                                --remove-unused-variables \
+                                --recursive \
+                                /workspace/src /workspace/tests
+                        '''
+                    }
+                }
+                stage('Black') {
+                    steps {
+                        sh 'python3 -m black --check --diff /workspace/src /workspace/tests'
+                    }
+                }
+                stage('Flake8') {
+                    steps {
+                        sh 'python3 -m flake8 /workspace/src /workspace/tests --max-line-length=120 --exclude=__pycache__'
+                    }
+                }
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                sh '''
+                    cd /workspace
+                    PYTHONPATH=src python3 -m pytest tests/ -v --tb=short
+                '''
+            }
+        }
+
+        stage('Docker Verify') {
+            steps {
+                sh '''
+                    echo "=== Docker images present ==="
+                    docker images --format "{{.Repository}}:{{.Tag}}\t{{.Size}}" \
+                        | grep lakehouse || echo "No lakehouse images found"
+                    echo "=== Verification complete ==="
+                '''
+            }
+        }
+    }
+
+    post {
+        success { echo "Local CI pipeline PASSED on branch ${env.GIT_BRANCH}" }
+        failure { echo "Local CI pipeline FAILED on branch ${env.GIT_BRANCH}" }
+    }
+}

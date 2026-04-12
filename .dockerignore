@@ -1,0 +1,25 @@
+# Exclude files from Docker build context
+.env
+.git
+.gitignore
+__pycache__
+*.pyc
+.pytest_cache
+.coverage
+build/
+dist/
+*.egg-info
+node_modules
+.terraform/
+*.tfstate
+*.tfstate.*
+.idea
+.vscode
+*.log
+requirements/dev.txt
+tests/
+docs/
+ci/
+!ci/jenkins/
+terraform/
+orchestration/

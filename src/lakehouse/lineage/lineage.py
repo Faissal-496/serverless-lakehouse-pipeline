@@ -1,5 +1,6 @@
 from datetime import datetime
-from lakehouse.utils.logging import logger
+from lakehouse.monitoring.logging import logger
+
 
 def log_lineage(source: str, target: str, rows: int):
     timestamp = datetime.now().isoformat()

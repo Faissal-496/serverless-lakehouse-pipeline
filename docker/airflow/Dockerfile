@@ -1,40 +1,58 @@
-# Apache Airflow 2.7.3 Runtime Image  
-# Includes AWS and database providers
-
-FROM apache/airflow:2.7.3
+# Apache Airflow 2.9.0 with Spark Client
+FROM apache/airflow:2.9.0
 
 # Set environment
 ENV AIRFLOW_HOME=/opt/airflow
 ENV AIRFLOW__CORE__DAGS_FOLDER=$AIRFLOW_HOME/dags
-ENV AIRFLOW__CORE__PLUGINS_FOLDER=$AIRFLOW_HOME/plugins
+ENV SPARK_HOME=/opt/spark
+ENV PATH=$SPARK_HOME/bin:$PATH
 
-# Use Airflow's official method for adding Python packages
-ENV _PIP_ADDITIONAL_REQUIREMENTS="apache-airflow-providers-amazon apache-airflow-providers-postgres apache-airflow-providers-celery boto3 requests pyyaml"
+# Packages installed via Airflow's recommended mechanism (startup-time install).
+# Only include packages not already provided by Airflow 2.9.0 deps.
+ENV _PIP_ADDITIONAL_REQUIREMENTS="pyyaml==6.0.1 python-json-logger==2.0.7 tenacity==8.2.3 python-dotenv==1.0.0 boto3==1.28.85"
 
-# Switch to root for system packages
 USER root
 
+# System dependencies: Java for the driver JVM, procps for spark-submit ps check
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         curl \
-        git \
-        postgresql-client && \
+        ca-certificates \
+        default-jre-headless \
+        default-jdk-headless \
+        wget \
+        netcat-traditional \
+        procps && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy entrypoint script
-COPY docker/airflow/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Install Spark client (spark-submit binary only - not a cluster node).
+# Pre-bake S3A JARs in the same RUN layer as the Spark install.
+# In --deploy-mode client the driver JVM runs on this container; it needs
+# hadoop-aws and aws-java-sdk on its classpath to resolve s3a:// URIs.
+# Same JAR versions as the Spark worker image to avoid classpath conflicts.
+RUN cd /opt && \
+    wget -q https://archive.apache.org/dist/spark/spark-3.5.0/spark-3.5.0-bin-hadoop3.tgz && \
+    tar -xzf spark-3.5.0-bin-hadoop3.tgz && \
+    rm spark-3.5.0-bin-hadoop3.tgz && \
+    ln -s spark-3.5.0-bin-hadoop3 spark && \
+    chmod -R 755 /opt/spark && \
+    wget -q -O /opt/spark/jars/hadoop-aws-3.3.4.jar \
+        https://repo.maven.apache.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar && \
+    wget -q -O /opt/spark/jars/aws-java-sdk-bundle-1.12.565.jar \
+        https://repo.maven.apache.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.565/aws-java-sdk-bundle-1.12.565.jar && \
+    chmod 644 /opt/spark/jars/hadoop-aws-3.3.4.jar \
+              /opt/spark/jars/aws-java-sdk-bundle-1.12.565.jar
 
-# Create necessary directories as root
-RUN mkdir -p $AIRFLOW_HOME/dags $AIRFLOW_HOME/plugins $AIRFLOW_HOME/logs
+# Startup environment script used by bash sessions
+RUN mkdir -p /opt/airflow/startup && \
+    printf '#!/bin/bash\n' > /opt/airflow/startup/configure-env.sh && \
+    printf 'export PYTHONPATH="/app/src:${PYTHONPATH:-}"\n' >> /opt/airflow/startup/configure-env.sh && \
+    printf 'export APP_ENV="${APP_ENV:-dev}"\n' >> /opt/airflow/startup/configure-env.sh && \
+    printf 'export CONFIG_DIR="${CONFIG_DIR:-/app/config}"\n' >> /opt/airflow/startup/configure-env.sh && \
+    printf 'export DATA_BASE_PATH="${DATA_BASE_PATH:-/data}"\n' >> /opt/airflow/startup/configure-env.sh && \
+    chmod +x /opt/airflow/startup/configure-env.sh
 
-# Return to airflow user (will have proper permissions from base image)
 USER airflow
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
-
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["webserver"]
+RUN echo 'source /opt/airflow/startup/configure-env.sh' >> ~/.bashrc

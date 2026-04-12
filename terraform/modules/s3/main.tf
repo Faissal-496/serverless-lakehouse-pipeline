@@ -1,7 +1,7 @@
 # ============================================================================
 # TERRAFORM MODULE: S3 DATA LAKE STORAGE
 # ============================================================================
-# 
+#
 # This module creates enterprise-grade S3 bucket with:
 # - Versioning (data protection)
 # - Encryption (security)
@@ -25,7 +25,7 @@ terraform {
 
 resource "aws_s3_bucket" "data_lake" {
   bucket = var.bucket_name
-  
+
   tags = merge(
     var.tags,
     {
@@ -38,7 +38,7 @@ resource "aws_s3_bucket" "data_lake" {
 # Block public access (critical for security)
 resource "aws_s3_bucket_public_access_block" "data_lake" {
   bucket = aws_s3_bucket.data_lake.id
-  
+
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
@@ -51,7 +51,7 @@ resource "aws_s3_bucket_public_access_block" "data_lake" {
 
 resource "aws_s3_bucket_versioning" "data_lake" {
   bucket = aws_s3_bucket.data_lake.id
-  
+
   versioning_configuration {
     status     = var.enable_versioning ? "Enabled" : "Disabled"
     mfa_delete = "Disabled"  # Set to "Enabled" only if MFA protection required
@@ -64,7 +64,7 @@ resource "aws_s3_bucket_versioning" "data_lake" {
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "data_lake" {
   bucket = aws_s3_bucket.data_lake.id
-  
+
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm      = var.kms_key_enabled ? "aws:kms" : "AES256"
@@ -77,11 +77,11 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "data_lake" {
 # Optional: KMS key for advanced encryption (costs extra)
 resource "aws_kms_key" "s3" {
   count = var.kms_key_enabled ? 1 : 0
-  
+
   description             = "KMS key for ${var.bucket_name} encryption"
   deletion_window_in_days = 10
   enable_key_rotation     = true
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -108,7 +108,7 @@ resource "aws_kms_key" "s3" {
       }
     ]
   })
-  
+
   tags = var.tags
 }
 
@@ -125,7 +125,7 @@ resource "aws_kms_alias" "s3" {
 resource "aws_s3_bucket" "logs" {
   count  = var.enable_access_logging ? 1 : 0
   bucket = "${var.bucket_name}-logs"
-  
+
   tags = merge(
     var.tags,
     {
@@ -138,7 +138,7 @@ resource "aws_s3_bucket" "logs" {
 resource "aws_s3_bucket_public_access_block" "logs" {
   count  = var.enable_access_logging ? 1 : 0
   bucket = aws_s3_bucket.logs[0].id
-  
+
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
@@ -148,7 +148,7 @@ resource "aws_s3_bucket_public_access_block" "logs" {
 resource "aws_s3_bucket_logging" "data_lake" {
   count  = var.enable_access_logging ? 1 : 0
   bucket = aws_s3_bucket.data_lake.id
-  
+
   target_bucket = aws_s3_bucket.logs[0].id
   target_prefix = "access-logs/"
 }
@@ -156,7 +156,7 @@ resource "aws_s3_bucket_logging" "data_lake" {
 # ============================================================================
 # LIFECYCLE POLICIES (Cost Optimization)
 # ============================================================================
-# 
+#
 # Automatic data migration strategy:
 #   New data (0-30 days): Standard (fast, full cost)
 #   Warm data (30-180 days): Intelligent-Tiering (cost optimized)
@@ -165,43 +165,43 @@ resource "aws_s3_bucket_logging" "data_lake" {
 
 resource "aws_s3_bucket_lifecycle_configuration" "data_lake" {
   bucket = aws_s3_bucket.data_lake.id
-  
+
   rule {
     id     = "intelligent-tiering"
     status = "Enabled"
-    
+
     # Apply to all non-noncurrent versions
     filter {
       prefix = ""
     }
-    
+
     # Transition to Intelligent-Tiering after X days
     transition {
       days          = var.lifecycle_days_to_ia
       storage_class = "INTELLIGENT_TIERING"
     }
-    
+
     # Transition to Glacier after Y days
     transition {
       days          = var.lifecycle_days_to_glacier
       storage_class = "GLACIER"
     }
-    
+
     # Optional: Delete very old objects (e.g., after 7 years for compliance)
     # expiration {
     #   days = 2555  # ~7 years
     # }
   }
-  
+
   # Handle noncurrent (deleted) versions
   rule {
     id     = "delete-noncurrent"
     status = "Enabled"
-    
+
     filter {
       prefix = ""
     }
-    
+
     noncurrent_version_expiration {
       noncurrent_days = 90  # Delete old versions after 90 days
     }

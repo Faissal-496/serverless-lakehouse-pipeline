@@ -17,6 +17,7 @@ logs/
 
 # Env
 .env
+.env.local-ha
 
 # Data (à adapter selon ton projet)
 data/
@@ -48,4 +49,7 @@ test_deployement.py
 
 # other files to ignore
 docs/*.md
-*.md
+*.md# Analysis reports and benchmarks (not committed per user request)
+Analysis/
+.env.docker
+docker-compose-local-ha.yml

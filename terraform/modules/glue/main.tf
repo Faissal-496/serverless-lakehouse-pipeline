@@ -1,7 +1,7 @@
 # ============================================================================
 # TERRAFORM MODULE: AWS GLUE CATALOG
 # ============================================================================
-# 
+#
 # Centralized metadata store for data discovery and governance
 #
 
@@ -21,7 +21,7 @@ terraform {
 resource "aws_glue_catalog_database" "lakehouse" {
   name        = var.database_name
   description = var.description
-  
+
   catalog_id = data.aws_caller_identity.current.account_id
 }
 
@@ -30,6 +30,7 @@ resource "aws_glue_catalog_database" "lakehouse" {
 # ============================================================================
 
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
 # ============================================================================
 # OUTPUTS
@@ -40,5 +41,5 @@ output "database_name" {
 }
 
 output "database_arn" {
-  value = "arn:aws:glue:${data.aws_caller_identity.current.account_id}:catalog:database/${aws_glue_catalog_database.lakehouse.name}"
+  value = "arn:aws:glue:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:database/${aws_glue_catalog_database.lakehouse.name}"
 }

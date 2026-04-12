@@ -46,4 +46,3 @@ output "crawler_cost_note" {
   description = "Cost information about Glue Crawlers"
   value       = "Crawlers disabled in dev/test. Cost: $0.40/DPU-hour if re-enabled."
 }
-
