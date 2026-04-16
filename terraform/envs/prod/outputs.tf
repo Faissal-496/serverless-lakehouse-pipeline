@@ -16,12 +16,12 @@ output "rabbitmq_endpoints" {
 
 output "jenkins_alb_dns_name" {
   value       = module.jenkins_alb.alb_dns_name
-  description = "Jenkins ALB DNS name"
+  description = "Jenkins ALB DNS name (point jenkins.octaa.tech CNAME here)"
 }
 
 output "airflow_alb_dns_name" {
   value       = module.airflow_alb.alb_dns_name
-  description = "Airflow ALB DNS name"
+  description = "Airflow ALB DNS name (point airflow.octaa.tech CNAME here)"
 }
 
 output "ecr_repository_urls" {
@@ -37,6 +37,16 @@ output "airflow_scheduler_private_ips" {
 output "airflow_worker_asg_name" {
   value       = module.airflow_workers.asg_name
   description = "Airflow worker ASG name"
+}
+
+output "emr_serverless_application_id" {
+  value       = module.emr_serverless.application_id
+  description = "EMR Serverless application ID"
+}
+
+output "emr_execution_role_arn" {
+  value       = module.emr_serverless.execution_role_arn
+  description = "EMR Serverless execution role ARN"
 }
 
 output "secrets_rds_arn" {

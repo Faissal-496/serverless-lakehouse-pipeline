@@ -1,89 +1,33 @@
-aws_region  = "eu-west-3"
-environment = "prod"
+# Copy this file to terraform.tfvars and fill in the values.
+# Sensitive values (passwords, keys) should not be committed.
+
+aws_region   = "eu-west-3"
+environment  = "prod"
 project_name = "lakehouse-assurance"
-cost_center  = "insurance-analytics"
-
-vpc_cidr             = "10.0.0.0/16"
-public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
-private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
-
-enable_nat_gateway = true
-allowed_ingress_cidr_blocks = ["0.0.0.0/0"]
-ssh_cidr_blocks             = []
-
-ec2_instance_type        = "t3.micro"
-ec2_key_name             = ""
-airflow_scheduler_count  = 2
-airflow_worker_desired   = 2
-airflow_worker_min       = 1
-airflow_worker_max       = 4
-jenkins_controller_count = 2
-jenkins_agent_count      = 4
-
-jenkins_admin_user     = "admin"
-jenkins_admin_password = "CHANGE_ME_STRONG_PASSWORD"
-
-mq_engine_version  = "3.11.20"
-mq_instance_type   = "mq.t3.micro"
-mq_deployment_mode = "ACTIVE_STANDBY_MULTI_AZ"
-mq_username        = "airflow"
-mq_password        = "CHANGE_ME_STRONG_PASSWORD"
-
-ecr_repository_names = [
-  "airflow-runtime",
-  "spark-runtime",
-  "jenkins-agent",
-  "lakehouse-base"
-]
-
-airflow_ecr_repo   = "airflow-runtime"
-airflow_image_tag  = "REPLACE_WITH_JENKINS_SHORT_SHA"
-airflow_dags_repo  = "https://github.com/Faissal-496/serverless-lakehouse-pipeline.git"
-airflow_dags_branch = "main"
-airflow_fernet_key = "CHANGE_ME_FERNET_KEY"
-airflow_webserver_secret_key = "CHANGE_ME_WEBSERVER_SECRET_KEY"
 
 s3_bucket_name = "lakehouse-assurance-moto-prod"
-s3_lifecycle_days_to_ia      = 30
-s3_lifecycle_days_to_glacier = 180
-s3_enable_versioning         = true
-s3_enable_encryption         = true
-s3_enable_access_logging     = true
 
-rds_instance_class = "db.t3.micro"
-rds_allocated_storage     = 20
-rds_max_allocated_storage = 200
-rds_backup_retention_days = 7
-rds_multi_az = true
-rds_force_ssl = true
-rds_engine_version = "15.3"
-rds_database_name = "lakehouse_prod"
+# RDS
 rds_master_username = "lakehouse_admin"
-rds_master_password = "CHANGE_ME_TO_STRONG_PASSWORD_32_CHARS_MIN"
+rds_master_password = "CHANGE_ME"
 
-cloudwatch_log_retention_days = 90
-cloudwatch_alarm_email = "data-platform-alerts@company.com"
-cloudwatch_enable_dashboards = true
+# Amazon MQ
+mq_username = "airflow"
+mq_password = "CHANGE_ME"
 
-alb_certificate_arn = "arn:aws:acm:eu-west-3:123456789012:certificate/REPLACE_ME"
+# Jenkins
+jenkins_admin_user     = "admin"
+jenkins_admin_password = "CHANGE_ME"
 
-enable_secrets_manager = true
+# Airflow secrets (generate with: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+airflow_fernet_key           = "CHANGE_ME"
+airflow_webserver_secret_key = "CHANGE_ME"
 
-glue_catalog_database_name = "lakehouse"
+# ACM certificate ARN (must be validated for octaa.tech and *.octaa.tech)
+alb_certificate_arn = "arn:aws:acm:eu-west-3:123456789012:certificate/CHANGE_ME"
 
-emr_serverless_application_id = ""
-emr_serverless_execution_role_arn = ""
+# CloudWatch
+cloudwatch_alarm_email = "alerts@octaa.tech"
 
-tags = {
-  Environment  = "production"
-  ManagedBy    = "Terraform"
-  Project      = "lakehouse-assurance"
-  CostCenter   = "insurance-analytics"
-  Owner        = "data-platform-team"
-  Confidential  = "yes"
-}
-
-additional_tags = {
-  BackupRequired   = "true"
-  DisasterRecovery = "single-region"
-}
+# ECR repositories
+ecr_repository_names = ["airflow-runtime"]

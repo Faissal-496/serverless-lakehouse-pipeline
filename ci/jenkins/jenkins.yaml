@@ -1,5 +1,10 @@
+# Jenkins Configuration as Code for production deployment on AWS EC2.
+# Agents are provisioned as Docker containers via the Docker Cloud plugin.
+# The workspace is created by Jenkins inside the agent container (no host bind mount).
+# Environment variables like ECR registry and AWS region are injected at runtime.
+
 jenkins:
-  systemMessage: "Lakehouse CI/CD — managed by JCasC"
+  systemMessage: "Lakehouse CI/CD - production (managed by JCasC)"
   numExecutors: 0
   mode: EXCLUSIVE
 
@@ -16,7 +21,7 @@ jenkins:
 
   clouds:
     - docker:
-        name: "docker-local"
+        name: "docker-cloud"
         dockerApi:
           dockerHost:
             uri: "unix:///var/run/docker.sock"
@@ -27,9 +32,8 @@ jenkins:
               image: "jenkins/agent:latest-jdk17"
               mounts:
                 - "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
-                - "type=bind,source=/home/fisal_bel/projects/data_projects/v0.1.1/serverless-lakehouse-pipeline,target=/workspace,readonly" # attention à ce schemin c'est juste pour le local (à adapter pour le CI en fonction de l'endroit où le repo est cloné)
               environmentsString: |
-                PYTHONPATH=/workspace/src
+                DOCKER_HOST=unix:///var/run/docker.sock
             remoteFs: "/home/jenkins/agent"
             connector:
               attach:
@@ -40,72 +44,8 @@ jenkins:
 
 unclassified:
   location:
-    url: "http://localhost:9080/"
-    adminAddress: "devops@company.com"
-
-jobs:
-  - script: |
-      pipelineJob('lakehouse-local-ci') {
-        description('Local CI — lint + test + build verification')
-        definition {
-          cps {
-            script("""\
-              pipeline {
-                agent { label 'docker-agent' }
-                options {
-                  timestamps()
-                  timeout(time: 15, unit: 'MINUTES')
-                }
-                environment {
-                  PYTHONPATH = '/workspace/src'
-                }
-                stages {
-                  stage('Setup') {
-                    steps {
-                      sh '''
-                        apt-get update -qq && apt-get install -y -qq python3 python3-pip python3-venv > /dev/null 2>&1
-                        python3 -m pip install --break-system-packages --no-cache-dir -q \\
-                          black==23.12.0 flake8==6.1.0 pytest==7.4.3 \\
-                          pyyaml==6.0.1 python-dotenv==1.0.0 tenacity==8.2.3 \\
-                          boto3 python-json-logger==2.0.7
-                      '''
-                    }
-                  }
-                  stage('Lint') {
-                    parallel {
-                      stage('Black') {
-                        steps {
-                          sh 'python3 -m black --check --diff /workspace/src /workspace/tests'
-                        }
-                      }
-                      stage('Flake8') {
-                        steps {
-                          sh 'python3 -m flake8 /workspace/src /workspace/tests --max-line-length=120 --exclude=__pycache__'
-                        }
-                      }
-                    }
-                  }
-                  stage('Unit Tests') {
-                    steps {
-                      sh 'cd /workspace && PYTHONPATH=src python3 -m pytest tests/ -v --tb=short'
-                    }
-                  }
-                  stage('Docker Verify') {
-                    steps {
-                      sh 'docker images --format "{{.Repository}}:{{.Tag}}\\t{{.Size}}" | grep lakehouse || echo "No lakehouse images found"'
-                    }
-                  }
-                }
-                post {
-                  success { echo 'Local CI pipeline PASSED.' }
-                  failure { echo 'Local CI pipeline FAILED — check stage logs.' }
-                }
-              }
-            """.stripIndent())
-            sandbox(true)
-          }
-        }
-      }
+    url: "${JENKINS_URL:-http://localhost:8080/}"
+    adminAddress: "devops@octaa.tech"
 
 security:
   globalJobDslSecurityConfiguration:

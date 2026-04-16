@@ -1,55 +1,47 @@
-# Python
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
-.venv/
-env/
+*.egg-info/
 
-# Spark
-spark-warehouse/
-metastore_db/
-derby.log
+dist/
+build/
+*.whl
+pip-wheel-metadata/
+.wheelhouse/
 
-# Logs
-*.log
-logs/
-
-# Env
 .env
-.env.local-ha
+.env.*
+!.env.example
 
-# Data (à adapter selon ton projet)
-data/
-*.csv
-*.parquet
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-
-# Terraform (CRITIQUE)
 .terraform/
-**/.terraform/*
 *.tfstate
 *.tfstate.*
 *.tfvars
+tfplan
 *.tfplan
-.terraform.lock.hcl
 
-# Secrets (CRITIQUE)
-les_credentials.txt
+!*.tfvars.example
+!.terraform.lock.hcl
 
-# Tests locaux
-test_connectivity.py
-test_deployement.py
+spark-warehouse/
+metastore_db/
+derby.log
+*.crc
+_SUCCESS
 
-# other files to ignore
-docs/*.md
-*.md# Analysis reports and benchmarks (not committed per user request)
-Analysis/
-.env.docker
-docker-compose-local-ha.yml
+*.log
+logs/
+
+.pytest_cache/
+.coverage
+htmlcov/
+
+.idea/
+.vscode/
+*.swp
+
+.DS_Store
+
+docker-compose.override.yml
+*.pid
+*.sock

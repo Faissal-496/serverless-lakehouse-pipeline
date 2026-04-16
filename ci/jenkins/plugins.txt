@@ -1,0 +1,15 @@
+workflow-aggregator
+pipeline-model-definition
+git
+github
+github-branch-source
+credentials-binding
+docker-workflow
+docker-plugin
+amazon-ecr
+aws-credentials
+configuration-as-code
+job-dsl
+pipeline-stage-view
+timestamper
+ansicolor

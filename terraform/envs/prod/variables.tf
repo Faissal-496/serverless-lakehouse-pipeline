@@ -121,13 +121,13 @@ variable "jenkins_admin_password" {
 variable "mq_engine_version" {
   type        = string
   description = "RabbitMQ engine version"
-  default     = "3.11.20"
+  default     = "3.13"
 }
 
 variable "mq_instance_type" {
   type        = string
   description = "Amazon MQ instance type"
-  default     = "mq.t3.micro"
+  default     = "mq.m5.large"
 }
 
 variable "mq_deployment_mode" {
@@ -275,7 +275,7 @@ variable "rds_force_ssl" {
 variable "rds_engine_version" {
   type        = string
   description = "PostgreSQL version"
-  default     = "15.3"
+  default     = "15.17"
 }
 
 variable "rds_database_name" {
@@ -325,16 +325,10 @@ variable "glue_catalog_database_name" {
   default     = "lakehouse"
 }
 
-variable "emr_serverless_application_id" {
+variable "emr_release_label" {
   type        = string
-  description = "EMR Serverless application ID"
-  default     = ""
-}
-
-variable "emr_serverless_execution_role_arn" {
-  type        = string
-  description = "EMR Serverless execution role ARN"
-  default     = ""
+  description = "EMR release label (e.g. emr-7.1.0 for Spark 3.5)"
+  default     = "emr-7.1.0"
 }
 
 variable "alb_certificate_arn" {

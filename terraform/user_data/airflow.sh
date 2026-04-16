@@ -28,6 +28,11 @@ SECRETS_RDS_ARN="${secrets_rds_arn}"
 SECRETS_MQ_ARN="${secrets_mq_arn}"
 SECRETS_AIRFLOW_ARN="${secrets_airflow_arn}"
 
+EMR_APPLICATION_ID="${emr_application_id}"
+EMR_EXECUTION_ROLE_ARN="${emr_execution_role_arn}"
+LAKEHOUSE_WHL_S3="${lakehouse_whl_s3}"
+SPARK_CONF_S3="${spark_conf_s3}"
+
 apt-get update -y
 apt-get install -y docker.io git curl python3-pip awscli
 systemctl enable --now docker
@@ -121,6 +126,10 @@ AIRFLOW_BROKER_URL=amqps://$${RABBITMQ_USERNAME}:$${RABBITMQ_PASSWORD}@$${RABBIT
 AIRFLOW_FERNET_KEY=$${AIRFLOW_FERNET_KEY}
 AIRFLOW_WEBSERVER_SECRET_KEY=$${AIRFLOW_WEBSERVER_SECRET_KEY}
 AIRFLOW_INIT=$${AIRFLOW_INIT}
+EMR_APPLICATION_ID=$${EMR_APPLICATION_ID}
+EMR_EXECUTION_ROLE_ARN=$${EMR_EXECUTION_ROLE_ARN}
+LAKEHOUSE_WHL_S3=$${LAKEHOUSE_WHL_S3}
+SPARK_CONF_S3=$${SPARK_CONF_S3}
 EOF_ENV
 
 cd /opt/lakehouse

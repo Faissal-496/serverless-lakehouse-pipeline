@@ -251,7 +251,7 @@ resource "aws_iam_role_policy_attachment" "ecr_access" {
 # ============================================================================
 
 resource "aws_iam_policy" "emr_serverless" {
-  count = var.emr_serverless_application_id != "" && var.emr_serverless_execution_role_arn != "" ? 1 : 0
+  count = var.enable_emr_serverless ? 1 : 0
 
   name = "${var.name_prefix}-emr-serverless-policy"
 
@@ -288,7 +288,7 @@ resource "aws_iam_policy" "emr_serverless" {
 }
 
 resource "aws_iam_role_policy_attachment" "emr_serverless" {
-  count = var.emr_serverless_application_id != "" && var.emr_serverless_execution_role_arn != "" ? 1 : 0
+  count = var.enable_emr_serverless ? 1 : 0
 
   role       = aws_iam_role.lakehouse_etl.name
   policy_arn = aws_iam_policy.emr_serverless[0].arn

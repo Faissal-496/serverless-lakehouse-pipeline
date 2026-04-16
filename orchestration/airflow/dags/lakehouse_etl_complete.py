@@ -1,132 +1,166 @@
 """
-Complete Lakehouse ETL Pipeline DAG
-=====================================
-Pipeline: Bronze -> Silver -> Gold
+Lakehouse ETL DAG - EMR Serverless edition.
+
+Submits Bronze, Silver, and Gold Spark jobs to EMR Serverless via the
+AWS StartJobRun API. Each task polls GetJobRun until the job completes.
+
+Environment variables (injected by docker-compose-aws.yml):
+  EMR_APPLICATION_ID      EMR Serverless application ID
+  EMR_EXECUTION_ROLE_ARN  IAM role assumed by the Spark runtime
+  S3_BUCKET               Data lake bucket
+  LAKEHOUSE_WHL_S3        s3://bucket/path/lakehouse-latest.whl
+  SPARK_CONF_S3           s3://bucket/config/spark-defaults-emr.conf
+  AWS_DEFAULT_REGION      eu-west-3
 """
 
-from datetime import datetime, timedelta
-from airflow import DAG
-from airflow.operators.bash import BashOperator
-from airflow.operators.empty import EmptyOperator
 import os
+import time
+import logging
+from datetime import datetime, timedelta
 
-# ==============================================================================
-# Configuration — single source of truth
-# ==============================================================================
+import boto3
+from airflow import DAG
+from airflow.operators.python import PythonOperator
 
-SPARK_MASTER = os.getenv("SPARK_MASTER_URL", "spark://spark-master:7077")
-AIRFLOW_PYTHON = "/home/airflow/.local/bin/python3"
-S3_BUCKET = os.getenv("S3_BUCKET", "lakehouse-assurance-moto-prod")
-APP_ENV = os.getenv("APP_ENV", "prod")
+logger = logging.getLogger("airflow.task")
 
-# Select config file based on environment
-SPARK_CONF_FILE = os.getenv("SPARK_PROPERTIES_FILE", "/app/config/spark/spark-defaults-local.conf")
+# Read once at DAG parse time
+EMR_APP_ID = os.getenv("EMR_APPLICATION_ID", "")
+EXECUTION_ROLE = os.getenv("EMR_EXECUTION_ROLE_ARN", "")
+S3_BUCKET = os.getenv("S3_BUCKET", "")
+WHL_PATH = os.getenv("LAKEHOUSE_WHL_S3", "")
+SPARK_CONF = os.getenv("SPARK_CONF_S3", "")
+REGION = os.getenv("AWS_DEFAULT_REGION", "eu-west-3")
 
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
-AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "eu-west-3")
+POLL_SECONDS = int(os.getenv("EMR_POLL_SECONDS", "30"))
+MAX_WAIT_SECONDS = int(os.getenv("EMR_MAX_WAIT_SECONDS", "3600"))
 
-# Only env vars that MUST be forwarded to driver/executor JVMs
-SPARK_ENV_CONF = [
-    "spark.driverEnv.PYTHONPATH=/app/src",
-    f"spark.driverEnv.PYSPARK_PYTHON={AIRFLOW_PYTHON}",
-    f"spark.driverEnv.PYSPARK_DRIVER_PYTHON={AIRFLOW_PYTHON}",
-    f"spark.driverEnv.APP_ENV={APP_ENV}",
-    "spark.driverEnv.CONFIG_DIR=/app/config",
-    "spark.driverEnv.DATA_BASE_PATH=/data",
-    f"spark.driverEnv.S3_BUCKET={S3_BUCKET}",
-    f"spark.driverEnv.AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID}",
-    f"spark.driverEnv.AWS_SECRET_ACCESS_KEY={AWS_SECRET_ACCESS_KEY}",
-    f"spark.driverEnv.AWS_DEFAULT_REGION={AWS_DEFAULT_REGION}",
-    "spark.executorEnv.PYTHONPATH=/app/src",
-    "spark.executorEnv.PYSPARK_PYTHON=/usr/bin/python3",
-    f"spark.executorEnv.APP_ENV={APP_ENV}",
-    "spark.executorEnv.CONFIG_DIR=/app/config",
-    "spark.executorEnv.DATA_BASE_PATH=/data",
-    f"spark.executorEnv.S3_BUCKET={S3_BUCKET}",
-    f"spark.executorEnv.AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID}",
-    f"spark.executorEnv.AWS_SECRET_ACCESS_KEY={AWS_SECRET_ACCESS_KEY}",
-    f"spark.executorEnv.AWS_DEFAULT_REGION={AWS_DEFAULT_REGION}",
-]
 
-_ENV_CONF = " ".join([f"--conf {c}" for c in SPARK_ENV_CONF])
+def submit_emr_job(job_module: str, execution_date: str, **kwargs):
+    """
+    Submit a PySpark job to EMR Serverless and wait for completion.
 
-TASK_ENV = {
-    "PYTHONPATH": "/app/src",
-    "PYSPARK_PYTHON": AIRFLOW_PYTHON,
-    "PYSPARK_DRIVER_PYTHON": AIRFLOW_PYTHON,
-    "APP_ENV": APP_ENV,
-    "CONFIG_DIR": "/app/config",
-    "DATA_BASE_PATH": "/data",
-    "S3_BUCKET": S3_BUCKET,
-    "SPARK_MASTER": SPARK_MASTER,
+    Args:
+        job_module: fully qualified module path, e.g.
+                    lakehouse.jobs.bronze_ingest_job
+        execution_date: YYYY-MM-DD string passed as --execution_date
+    """
+    client = boto3.client("emr-serverless", region_name=REGION)
+
+    # The entrypoint script is a thin wrapper that imports and runs the job.
+    # It is embedded directly so we do not need a separate file on S3.
+    entry_point = f"s3://{S3_BUCKET}/artifacts/run_job.py"
+
+    spark_submit = {
+        "entryPoint": entry_point,
+        "entryPointArguments": [
+            "--job-module", job_module,
+            "--execution-date", execution_date,
+        ],
+        "sparkSubmitParameters": (
+            f"--py-files {WHL_PATH}"
+        ),
+    }
+
+    if SPARK_CONF:
+        spark_submit["sparkSubmitParameters"] += (
+            f" --properties-file {SPARK_CONF}"
+        )
+
+    logger.info(
+        "Submitting EMR Serverless job: app=%s module=%s date=%s",
+        EMR_APP_ID, job_module, execution_date,
+    )
+
+    response = client.start_job_run(
+        applicationId=EMR_APP_ID,
+        executionRoleArn=EXECUTION_ROLE,
+        jobDriver={"sparkSubmit": spark_submit},
+        configurationOverrides={
+            "monitoringConfiguration": {
+                "s3MonitoringConfiguration": {
+                    "logUri": f"s3://{S3_BUCKET}/logs/emr-serverless/"
+                }
+            }
+        },
+        tags={"job_module": job_module, "execution_date": execution_date},
+    )
+
+    job_run_id = response["jobRunId"]
+    logger.info("Job submitted: job_run_id=%s", job_run_id)
+
+    # Poll until terminal state
+    elapsed = 0
+    while elapsed < MAX_WAIT_SECONDS:
+        status = client.get_job_run(
+            applicationId=EMR_APP_ID, jobRunId=job_run_id
+        )
+        state = status["jobRun"]["state"]
+        logger.info("Job %s state: %s (elapsed %ds)", job_run_id, state, elapsed)
+
+        if state in ("SUCCESS",):
+            logger.info("Job %s completed successfully", job_run_id)
+            return job_run_id
+        if state in ("FAILED", "CANCELLED"):
+            detail = status["jobRun"].get("stateDetails", "no details")
+            raise RuntimeError(
+                f"EMR job {job_run_id} ended with state {state}: {detail}"
+            )
+
+        time.sleep(POLL_SECONDS)
+        elapsed += POLL_SECONDS
+
+    raise TimeoutError(
+        f"EMR job {job_run_id} did not finish within {MAX_WAIT_SECONDS}s"
+    )
+
+
+# DAG definition
+
+default_args = {
+    "owner": "data-engineering",
+    "depends_on_past": False,
+    "retries": 1,
+    "retry_delay": timedelta(minutes=5),
+    "execution_timeout": timedelta(hours=1),
 }
 
-
-def _spark_submit_cmd(job_script: str) -> str:
-    return f"""
-        set -e
-        EXECUTION_DATE='{{{{ ds }}}}'
-
-        spark-submit \
-            --master {SPARK_MASTER} \
-            --deploy-mode client \
-            --properties-file {SPARK_CONF_FILE} \
-            {_ENV_CONF} \
-            {job_script} \
-            --execution_date "$EXECUTION_DATE"
-    """
-
-
-# ==============================================================================
-# DAG
-# ==============================================================================
-
-dag = DAG(
-    "lakehouse_etl_complete",
-    description="Complete Lakehouse ETL Pipeline: Bronze -> Silver -> Gold",
+with DAG(
+    dag_id="lakehouse_etl_complete",
+    description="Bronze - Silver - Gold ETL pipeline on EMR Serverless",
+    default_args=default_args,
     schedule_interval="0 2 * * *",
     start_date=datetime(2026, 1, 1),
     catchup=False,
     max_active_runs=1,
-    tags=["lakehouse", "etl", "production"],
-    default_args={
-        "owner": "lakehouse-team",
-        "retries": 2,
-        "retry_delay": timedelta(minutes=1),
-        "execution_timeout": timedelta(hours=2),
-    },
-)
+    tags=["lakehouse", "etl", "emr-serverless"],
+) as dag:
 
-start_task = EmptyOperator(task_id="etl_start", dag=dag)
+    bronze = PythonOperator(
+        task_id="bronze_ingest",
+        python_callable=submit_emr_job,
+        op_kwargs={
+            "job_module": "lakehouse.jobs.bronze_ingest_job",
+            "execution_date": "{{ ds }}",
+        },
+    )
 
-bronze_ingest = BashOperator(
-    task_id="bronze_ingest",
-    bash_command=_spark_submit_cmd("/app/src/lakehouse/jobs/bronze_ingest_job.py"),
-    dag=dag,
-    append_env=True,
-    env=TASK_ENV,
-)
+    silver = PythonOperator(
+        task_id="silver_transform",
+        python_callable=submit_emr_job,
+        op_kwargs={
+            "job_module": "lakehouse.jobs.silver_transform_job",
+            "execution_date": "{{ ds }}",
+        },
+    )
 
-silver_transform = BashOperator(
-    task_id="silver_transform",
-    bash_command=_spark_submit_cmd("/app/src/lakehouse/jobs/silver_transform_job.py"),
-    dag=dag,
-    append_env=True,
-    env=TASK_ENV,
-)
+    gold = PythonOperator(
+        task_id="gold_transform",
+        python_callable=submit_emr_job,
+        op_kwargs={
+            "job_module": "lakehouse.jobs.gold_transform_job",
+            "execution_date": "{{ ds }}",
+        },
+    )
 
-gold_transform = BashOperator(
-    task_id="gold_transform",
-    bash_command=_spark_submit_cmd("/app/src/lakehouse/jobs/gold_transform_job.py"),
-    dag=dag,
-    append_env=True,
-    env=TASK_ENV,
-)
-
-end_task = EmptyOperator(task_id="etl_end", dag=dag)
-
-start_task >> bronze_ingest >> silver_transform >> gold_transform >> end_task
-
-if __name__ == "__main__":
-    dag.cli()
+    bronze >> silver >> gold

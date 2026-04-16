@@ -73,16 +73,16 @@ resource "aws_secretsmanager_secret_version" "airflow" {
 }
 
 output "rds_secret_arn" {
-  value       = var.enable ? aws_secretsmanager_secret.rds[0].arn : null
+  value       = var.enable ? aws_secretsmanager_secret.rds[0].arn : ""
   description = "RDS secret ARN"
 }
 
 output "mq_secret_arn" {
-  value       = var.enable ? aws_secretsmanager_secret.mq[0].arn : null
+  value       = var.enable ? aws_secretsmanager_secret.mq[0].arn : ""
   description = "MQ secret ARN"
 }
 
 output "airflow_secret_arn" {
-  value       = var.enable ? aws_secretsmanager_secret.airflow[0].arn : null
+  value       = var.enable ? aws_secretsmanager_secret.airflow[0].arn : ""
   description = "Airflow secret ARN"
 }

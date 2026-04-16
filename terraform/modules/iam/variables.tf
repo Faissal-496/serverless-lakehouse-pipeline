@@ -40,6 +40,12 @@ variable "emr_serverless_execution_role_arn" {
   default     = ""
 }
 
+variable "enable_emr_serverless" {
+  type        = bool
+  description = "Enable EMR Serverless IAM policy"
+  default     = true
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags to apply"

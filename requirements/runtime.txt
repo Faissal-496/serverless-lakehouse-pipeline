@@ -1,28 +1,5 @@
-# Runtime Requirements - Minimal for Spark ETL
-# Spark scripts primarily need pyspark and basic utilities
-
-# Core
-pyspark==3.5.0
-
-# Logging & Monitoring (required by transformation scripts)
-python-json-logger==2.0.7
-tenacity==8.2.3
-
-# AWS Integration (for S3 operations if needed in Python)
-boto3==1.28.85
-s3fs==2023.12.1
-
-# Utilities
-python-dotenv==1.0.0
-pyyaml==6.0.1
-requests==2.31.0
-
-# Optional: Only if scripts import directly
-# pandas==2.1.4
-# numpy==1.24.3
-
-# Note: Data Quality & Monitoring libs commented out
-# great-expectations==0.18.12
-# pandera==0.17.2
-# prometheus-client==0.19.0
-# pyarrow==14.0.1 (usually not needed - Spark includes it)
+pyyaml>=6.0
+python-json-logger>=2.0
+tenacity>=8.0
+boto3>=1.28
+python-dotenv>=1.0

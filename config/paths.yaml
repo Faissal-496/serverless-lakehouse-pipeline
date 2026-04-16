@@ -1,4 +1,8 @@
+# S3 prefix mappings for each data lake layer.
+# Used by PlatformConfig.get_s3_layer_path() to resolve layer names to prefixes.
+
 paths:
+  raw: RAW
   bronze: bronze
   silver: silver
   gold: gold

@@ -1,6 +1,5 @@
-#!/usr/bin/env python3
 """
-Enterprise Data Lake - Unit Tests
+Unit tests for the lakehouse data platform.
 Validates data quality framework, partitioning strategy, and AWS integration.
 """
 
@@ -10,24 +9,24 @@ import logging
 from datetime import datetime
 import pytest
 
-# Ensure lakehouse package is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Try to import Spark
-try:
-    from pyspark.sql import SparkSession
+# Set required env vars for PlatformConfig before any imports that trigger it.
+os.environ.setdefault("S3_BUCKET", "test-bucket")
+os.environ.setdefault("APP_ENV", "test")
 
-    SPARK_AVAILABLE = True
-    spark = SparkSession.builder.appName("LakehouseTests").master("local[*]").getOrCreate()
-except ImportError:
-    SPARK_AVAILABLE = False
-    spark = None
-    logger.warning("PySpark not installed — Spark tests will be skipped")
+# PySpark is a required dev dependency. Tests must fail loudly if it is missing.
+from pyspark.sql import SparkSession  # noqa: E402
 
-pytestmark = pytest.mark.skipif(not SPARK_AVAILABLE, reason="PySpark not installed")
+spark = (
+    SparkSession.builder
+    .appName("LakehouseTests")
+    .master("local[*]")
+    .getOrCreate()
+)
 
 
 class TestDataQualityFramework:
@@ -87,7 +86,9 @@ class TestPartitioningStrategy:
     def test_bronze_partitioning_adds_correct_columns(self):
         from lakehouse.utils.partitioning import PartitioningStrategy
 
-        df = spark.createDataFrame([("dataset1", "value1"), ("dataset2", "value2")], ["col1", "col2"])
+        df = spark.createDataFrame(
+            [("dataset1", "value1"), ("dataset2", "value2")], ["col1", "col2"]
+        )
         strategy = PartitioningStrategy(environment="dev")
         df_p = strategy.partition_bronze(df, "test_dataset")
 
@@ -114,11 +115,11 @@ class TestPartitioningStrategy:
         test_date = datetime(2026, 3, 8)
         bronze_path = strategy.get_partition_path("bronze", "test_dataset", test_date)
 
-        assert "bronze" in bronze_path
+        assert "prod" in bronze_path
+        assert "test_dataset" in bronze_path
         assert "year=2026" in bronze_path
         assert "month=03" in bronze_path
         assert "day=08" in bronze_path
-        assert "prod" in bronze_path
 
     def test_partition_schema_validation(self):
         from lakehouse.utils.partitioning import validate_partition_schema
@@ -156,8 +157,28 @@ class TestAWSIntegration:
             pytest.skip("AWS credentials needed")
 
 
+class TestPlatformConfig:
+    """Test centralized configuration."""
+
+    def test_config_loads_with_env_vars(self):
+        from lakehouse.core.config import PlatformConfig
+
+        config = PlatformConfig(app_env="test", s3_bucket="my-bucket")
+        assert config.app_env == "test"
+        assert config.s3_bucket == "my-bucket"
+        assert config.execution_date is not None
+
+    def test_s3_layer_path(self):
+        from lakehouse.core.config import PlatformConfig
+
+        config = PlatformConfig(app_env="test", s3_bucket="my-bucket")
+        path = config.get_s3_layer_path("bronze", "Client")
+        assert "s3a://my-bucket" in path
+        assert "Client" in path
+
+
 class TestDataLakePipeline:
-    """Integration tests for complete data lake pipeline."""
+    """Integration tests for the complete pipeline logic."""
 
     def test_end_to_end_data_flow(self):
         from lakehouse.quality.data_quality_rules import DataQualityValidator
@@ -176,7 +197,9 @@ class TestDataLakePipeline:
         bronze_partitioned = partitioner.partition_bronze(bronze_df, "contracts")
 
         validator = DataQualityValidator()
-        quality_results = validator.validate_bronze_layer(bronze_partitioned, "contracts")
+        quality_results = validator.validate_bronze_layer(
+            bronze_partitioned, "contracts"
+        )
 
         silver_df = bronze_partitioned.filter("amount IS NOT NULL")
         silver_partitioned = partitioner.partition_silver(silver_df, "contracts")
