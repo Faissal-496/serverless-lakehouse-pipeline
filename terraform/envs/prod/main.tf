@@ -235,6 +235,7 @@ locals {
   airflow_user_data_common = {
     aws_region                   = var.aws_region
     environment                  = var.environment
+    account_id                   = local.account_id
     airflow_ecr_repo             = var.airflow_ecr_repo
     airflow_image_tag            = var.airflow_image_tag
     airflow_dags_repo            = var.airflow_dags_repo
@@ -285,6 +286,7 @@ locals {
     "${path.module}/../../user_data/jenkins_controller.sh",
     {
       efs_id                     = module.jenkins_efs.file_system_id
+      aws_region                 = local.region
       jenkins_casc_b64           = local.jenkins_casc_b64
       jenkins_plugins_b64        = local.jenkins_plugins_b64
       jenkins_admin_user_b64     = local.jenkins_admin_user_b64

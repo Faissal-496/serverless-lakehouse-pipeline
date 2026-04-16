@@ -55,13 +55,13 @@ variable "allowed_ingress_cidr_blocks" {
 variable "ssh_cidr_blocks" {
   type        = list(string)
   description = "CIDR blocks allowed to SSH"
-  default     = []
+  default     = ["10.0.0.0/16"]
 }
 
 variable "ec2_instance_type" {
   type        = string
   description = "EC2 instance type"
-  default     = "t3.micro"
+  default     = "t3.small"
 }
 
 variable "ec2_key_name" {

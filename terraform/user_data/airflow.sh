@@ -32,9 +32,24 @@ EMR_APPLICATION_ID="${emr_application_id}"
 EMR_EXECUTION_ROLE_ARN="${emr_execution_role_arn}"
 LAKEHOUSE_WHL_S3="${lakehouse_whl_s3}"
 SPARK_CONF_S3="${spark_conf_s3}"
+AWS_ACCOUNT_ID="${account_id}"
+
+# Disable sshd DNS reverse lookup to prevent SSH banner exchange timeout on private instances
+if ! grep -q '^UseDNS no' /etc/ssh/sshd_config; then
+  echo 'UseDNS no' >> /etc/ssh/sshd_config
+  systemctl restart sshd || true
+fi
 
 apt-get update -y
-apt-get install -y docker.io git curl python3-pip awscli
+apt-get install -y ca-certificates curl gnupg git python3-pip
+
+# Install Docker via official method (docker.io may not be available)
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+apt-get update -y
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 systemctl enable --now docker
 usermod -aG docker ubuntu
 
@@ -62,9 +77,18 @@ if [[ "$${RABBITMQ_HOST}" == "$${RABBITMQ_PORT}" ]]; then
   RABBITMQ_PORT="5671"
 fi
 
-AWS_ACCOUNT_ID="$$(aws sts get-caller-identity --query Account --output text)"
+AWS_ACCOUNT_ID="$${AWS_ACCOUNT_ID}"
 ECR_REGISTRY="$${AWS_ACCOUNT_ID}.dkr.ecr.$${AWS_REGION}.amazonaws.com"
 AIRFLOW_IMAGE="$${ECR_REGISTRY}/$${AIRFLOW_ECR_REPO}:$${AIRFLOW_IMAGE_TAG}"
+
+# Install awscli v2
+if ! command -v aws &>/dev/null; then
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+  apt-get install -y unzip
+  unzip -q /tmp/awscliv2.zip -d /tmp
+  /tmp/aws/install
+  rm -rf /tmp/awscliv2.zip /tmp/aws
+fi
 
 aws ecr get-login-password --region "$${AWS_REGION}" | docker login --username AWS --password-stdin "$${ECR_REGISTRY}"
 docker pull "$${AIRFLOW_IMAGE}"
@@ -72,24 +96,21 @@ docker pull "$${AIRFLOW_IMAGE}"
 # Optionally load secrets from AWS Secrets Manager (overrides vars)
 if [[ "$${ENABLE_SECRETS_MANAGER}" == "true" ]]; then
   if [[ -n "$${SECRETS_RDS_ARN}" ]]; then
-    export RDS_SECRET_JSON
-    RDS_SECRET_JSON="$$(aws secretsmanager get-secret-value --secret-id "$${SECRETS_RDS_ARN}" --query SecretString --output text)"
-    RDS_USERNAME="$$(python3 - <<'PY'\nimport json,os\nprint(json.loads(os.environ['RDS_SECRET_JSON']).get('username',''))\nPY)"
-    RDS_PASSWORD="$$(python3 - <<'PY'\nimport json,os\nprint(json.loads(os.environ['RDS_SECRET_JSON']).get('password',''))\nPY)"
-    RDS_HOST="$$(python3 - <<'PY'\nimport json,os\nprint(json.loads(os.environ['RDS_SECRET_JSON']).get('host',''))\nPY)"
+    RDS_SECRET_JSON="$(aws secretsmanager get-secret-value --secret-id "$${SECRETS_RDS_ARN}" --query SecretString --output text)"
+    RDS_USERNAME="$(echo "$${RDS_SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('username',''))")"
+    RDS_PASSWORD="$(echo "$${RDS_SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('password',''))")"
+    RDS_HOST="$(echo "$${RDS_SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('host',''))")"
   fi
   if [[ -n "$${SECRETS_MQ_ARN}" ]]; then
-    export MQ_SECRET_JSON
-    MQ_SECRET_JSON="$$(aws secretsmanager get-secret-value --secret-id "$${SECRETS_MQ_ARN}" --query SecretString --output text)"
-    RABBITMQ_USERNAME="$$(python3 - <<'PY'\nimport json,os\nprint(json.loads(os.environ['MQ_SECRET_JSON']).get('username',''))\nPY)"
-    RABBITMQ_PASSWORD="$$(python3 - <<'PY'\nimport json,os\nprint(json.loads(os.environ['MQ_SECRET_JSON']).get('password',''))\nPY)"
-    RABBITMQ_ENDPOINT_RAW="$$(python3 - <<'PY'\nimport json,os\nprint(json.loads(os.environ['MQ_SECRET_JSON']).get('endpoint',''))\nPY)"
+    MQ_SECRET_JSON="$(aws secretsmanager get-secret-value --secret-id "$${SECRETS_MQ_ARN}" --query SecretString --output text)"
+    RABBITMQ_USERNAME="$(echo "$${MQ_SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('username',''))")"
+    RABBITMQ_PASSWORD="$(echo "$${MQ_SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('password',''))")"
+    RABBITMQ_ENDPOINT_RAW="$(echo "$${MQ_SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('endpoint',''))")"
   fi
   if [[ -n "$${SECRETS_AIRFLOW_ARN}" ]]; then
-    export AIRFLOW_SECRET_JSON
-    AIRFLOW_SECRET_JSON="$$(aws secretsmanager get-secret-value --secret-id "$${SECRETS_AIRFLOW_ARN}" --query SecretString --output text)"
-    AIRFLOW_FERNET_KEY="$$(python3 - <<'PY'\nimport json,os\nprint(json.loads(os.environ['AIRFLOW_SECRET_JSON']).get('fernet_key',''))\nPY)"
-    AIRFLOW_WEBSERVER_SECRET_KEY="$$(python3 - <<'PY'\nimport json,os\nprint(json.loads(os.environ['AIRFLOW_SECRET_JSON']).get('webserver_secret',''))\nPY)"
+    AIRFLOW_SECRET_JSON="$(aws secretsmanager get-secret-value --secret-id "$${SECRETS_AIRFLOW_ARN}" --query SecretString --output text)"
+    AIRFLOW_FERNET_KEY="$(echo "$${AIRFLOW_SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('fernet_key',''))")"
+    AIRFLOW_WEBSERVER_SECRET_KEY="$(echo "$${AIRFLOW_SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('webserver_secret',''))")"
   fi
 fi
 
@@ -133,7 +154,19 @@ SPARK_CONF_S3=$${SPARK_CONF_S3}
 EOF_ENV
 
 cd /opt/lakehouse
+
+# Inject AIRFLOW_INIT into compose environment (not available inside container otherwise)
+sed -i '/SPARK_CONF_S3:/a\    AIRFLOW_INIT: $${AIRFLOW_INIT:-false}' docker/compose/docker-compose-aws.yml
+# Add Celery broker SSL setting for Amazon MQ (amqps://)
+sed -i '/AIRFLOW__CELERY__RESULT_BACKEND:/a\    AIRFLOW__CELERY__BROKER_USE_SSL: "true"' docker/compose/docker-compose-aws.yml
+
 if [[ "$${AIRFLOW_ROLE}" == "scheduler" ]]; then
+  # Run database migration before starting services (fresh DB needs tables)
+  docker compose --env-file /opt/airflow/.env -f docker/compose/docker-compose-aws.yml run --rm --no-deps airflow-webserver airflow db migrate
+  docker compose --env-file /opt/airflow/.env -f docker/compose/docker-compose-aws.yml run --rm --no-deps airflow-webserver \
+    airflow users create --username admin --password admin \
+    --firstname Airflow --lastname Admin --role Admin \
+    --email admin@octaa.tech || true
   docker compose --env-file /opt/airflow/.env -f docker/compose/docker-compose-aws.yml up -d git-sync airflow-webserver airflow-scheduler
   if [[ "$${AIRFLOW_ENABLE_FLOWER}" == "true" ]]; then
     docker compose --env-file /opt/airflow/.env -f docker/compose/docker-compose-aws.yml up -d airflow-flower

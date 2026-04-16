@@ -1,29 +1,50 @@
 #!/bin/bash
 set -euo pipefail
 
+AWS_REGION="${aws_region}"
+
+# Disable sshd DNS reverse lookup to prevent SSH banner exchange timeout
+if ! grep -q '^UseDNS no' /etc/ssh/sshd_config; then
+  echo 'UseDNS no' >> /etc/ssh/sshd_config
+  systemctl restart sshd || true
+fi
+
 apt-get update -y
-apt-get install -y docker.io git curl amazon-efs-utils util-linux
+apt-get install -y ca-certificates curl gnupg git util-linux nfs-common
+
+# Install Docker via official method
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+apt-get update -y
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 systemctl enable --now docker
 usermod -aG docker ubuntu
 
 mkdir -p /var/jenkins_home
 mkdir -p /var/jenkins_home/casc
 
-# Mount EFS for shared Jenkins home (with 30s timeout)
+# Mount EFS via NFS4 (no efs-utils needed)
+EFS_DNS="${efs_id}.efs.$${AWS_REGION}.amazonaws.com"
 if [ ! -z "${efs_id}" ]; then
-  timeout 30 mount -t efs -o tls ${efs_id}:/ /var/jenkins_home || {
+  timeout 30 mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport "$${EFS_DNS}:/" /var/jenkins_home || {
     echo "WARNING: EFS mount failed/timeout, using local storage temporarily"
-    # Services will start but warn about EFS
   }
 fi
 
 if ! grep -q "${efs_id}" /etc/fstab 2>/dev/null; then
   if [ ! -z "${efs_id}" ]; then
-    echo "${efs_id}:/ /var/jenkins_home efs defaults,_netdev,tls 0 0" >> /etc/fstab
+    echo "$${EFS_DNS}:/ /var/jenkins_home nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0" >> /etc/fstab
   fi
 fi
 
+# Recreate subdirs after EFS mount (EFS may be empty on first mount)
+mkdir -p /var/jenkins_home/casc
 mkdir -p /var/jenkins_home/secure
+
+# Jenkins container runs as uid 1000 - fix ownership
+chown -R 1000:1000 /var/jenkins_home
 
 # Seed JCasC and plugins into shared EFS (base64 from Terraform)
 if [ ! -f /var/jenkins_home/casc/jenkins.yaml ]; then
