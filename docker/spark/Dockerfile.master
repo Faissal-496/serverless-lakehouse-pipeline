@@ -19,6 +19,6 @@ EXPOSE 7077 8080
 
 # Healthcheck: verify RPC port is listening
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
-  CMD nc -z localhost 7077 || exit 1
+  CMD nc -z $(hostname) 7077 || exit 1
 
 ENTRYPOINT ["/start-master.sh"]

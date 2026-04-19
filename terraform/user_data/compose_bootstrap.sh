@@ -120,6 +120,9 @@ HOST_REPO_PATH=$HOST_REPO_PATH
 EOF
 chmod 600 .env.docker
 
+log "Building Spark base image..."
+docker build -t lakehouse-spark-base:latest -f docker/spark/Dockerfile.base .
+
 log "Starting Docker Compose stack..."
 docker compose --env-file .env.docker up -d --build
 

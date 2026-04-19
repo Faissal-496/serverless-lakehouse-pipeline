@@ -119,19 +119,8 @@ services:
   airflow-init:
     <<: *airflow-common
     command: >
-      bash -c "
-      airflow db init &&
-      (
-        airflow users create
-          --username \"${AIRFLOW_ADMIN_USER}\"
-          --password \"${AIRFLOW_ADMIN_PASSWORD}\"
-          --firstname \"Admin\"
-          --lastname \"User\"
-          --role \"Admin\"
-          --email \"${AIRFLOW_ADMIN_EMAIL}\" ||
-        echo \"Airflow admin user already exists\"
-      )
-      "
+      bash -c "airflow db init &&
+      (airflow users create --username ${AIRFLOW_ADMIN_USER} --password ${AIRFLOW_ADMIN_PASSWORD} --firstname Admin --lastname User --role Admin --email ${AIRFLOW_ADMIN_EMAIL} || echo 'Airflow admin user already exists')"
 
   airflow-webserver:
     <<: *airflow-common
