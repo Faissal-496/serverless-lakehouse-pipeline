@@ -1,8 +1,7 @@
-# ============================================================================
+ 
 # LAKEHOUSE SPARK BASE - CLUSTER IMAGE
 # Spark 3.5.0 + S3A + Python + ETL dependencies
 # Used by both master and workers
-# ============================================================================
 
 FROM apache/spark:3.5.0
 
@@ -18,9 +17,9 @@ ENV PATH=$SPARK_HOME/bin:/home/spark/.local/bin:$PATH
 
 WORKDIR /opt/lakehouse
 
-# ============================================================================
+ 
 # System Dependencies + Tools for healthcheck
-# ============================================================================
+ 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         python3-pip \
@@ -33,9 +32,9 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# ============================================================================
+ 
 # Python Dependencies for PySpark ETL
-# ============================================================================
+ 
 RUN python3 -m pip install --no-cache-dir \
     boto3 \
     s3fs \
@@ -47,9 +46,9 @@ RUN python3 -m pip install --no-cache-dir \
     pandas \
     pyarrow
 
-# ============================================================================
+ 
 # S3A CONNECTORS - JAR files for direct S3 access
-# ============================================================================
+ 
 RUN mkdir -p $SPARK_HOME/jars && \
     wget -q -O $SPARK_HOME/jars/hadoop-aws-3.3.4.jar \
         https://repo.maven.apache.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar && \
@@ -57,9 +56,9 @@ RUN mkdir -p $SPARK_HOME/jars && \
         https://repo.maven.apache.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.565/aws-java-sdk-bundle-1.12.565.jar && \
     chmod 755 $SPARK_HOME/jars/*.jar
 
-# ============================================================================
+ 
 # Spark Configuration for S3A + Data Processing + Event Logging
-# ============================================================================
+ 
 RUN mkdir -p $SPARK_HOME/conf && \
     mkdir -p /opt/lakehouse/logs/spark-events && \
     printf '%s\n' \
@@ -82,25 +81,25 @@ RUN mkdir -p $SPARK_HOME/conf && \
     >> $SPARK_HOME/conf/spark-defaults.conf && \
     chmod 644 $SPARK_HOME/conf/spark-defaults.conf
 
-# ============================================================================
+ 
 # Directory structure for data + logs + app code
-# ============================================================================
+ 
 RUN mkdir -p /opt/lakehouse/{data,logs,src,logs/spark-events} && \
     chown -R spark:spark /opt/lakehouse && \
     chmod -R 755 /opt/lakehouse && \
     chmod 777 /opt/lakehouse/logs/spark-events
 
-# ============================================================================
+ 
 # Install lakehouse Python package
-# ============================================================================
+ 
 COPY pyproject.toml setup.cfg /opt/lakehouse/
 COPY src/ /opt/lakehouse/src/
 RUN python3 -m pip install --no-cache-dir -e /opt/lakehouse && \
     chown -R spark:spark /opt/lakehouse
 
-# ============================================================================
+ 
 # Runtime Configuration - Switch to spark user
-# ============================================================================
+ 
 USER spark
 
 CMD ["sleep", "infinity"]

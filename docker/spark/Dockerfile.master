@@ -1,4 +1,5 @@
 # Spark Master - inherits all S3A + Python deps from base
+
 FROM lakehouse-spark-base:latest
 
 LABEL role="master" \

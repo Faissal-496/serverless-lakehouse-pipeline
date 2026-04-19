@@ -5,10 +5,10 @@ if [ -z "$SPARK_HOME" ]; then
   SPARK_HOME=$(find /opt -maxdepth 2 -name "spark-class" -type f 2>/dev/null | head -1 | xargs dirname | xargs dirname)
 fi
 
-echo "================================"
+ 
 echo "Starting Spark Master"
 echo "SPARK_HOME: $SPARK_HOME"
-echo "================================"
+ 
 
 if [ ! -f "$SPARK_HOME/bin/spark-class" ]; then
   echo "ERROR: spark-class not found at $SPARK_HOME/bin/spark-class"
