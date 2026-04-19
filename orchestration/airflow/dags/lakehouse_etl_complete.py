@@ -92,7 +92,7 @@ def _spark_submit_cmd(job_script: str) -> str:
 dag = DAG(
     "lakehouse_etl_complete",
     description="Complete Lakehouse ETL Pipeline: Bronze -> Silver -> Gold",
-    schedule_interval="0 2 * * *",
+    schedule="0 2 * * *",
     start_date=datetime(2026, 1, 1),
     catchup=False,
     max_active_runs=1,

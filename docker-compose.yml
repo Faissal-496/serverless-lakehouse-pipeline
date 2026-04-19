@@ -159,7 +159,7 @@ services:
 
   airflow-webserver:
     <<: *airflow-common
-    restart: unless-stopped
+    restart: on-failure
     ports:
       - "8080:8080"
     depends_on:
@@ -168,14 +168,14 @@ services:
 
   airflow-scheduler:
     <<: *airflow-common
-    restart: unless-stopped
+    restart: on-failure
     depends_on:
       - airflow-init
     command: scheduler
 
   airflow-worker:
     <<: *airflow-common
-    restart: unless-stopped
+    restart: on-failure
     depends_on:
       - airflow-init
       - spark-master
