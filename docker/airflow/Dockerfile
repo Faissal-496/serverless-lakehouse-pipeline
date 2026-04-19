@@ -1,6 +1,8 @@
 # Apache Airflow 2.9.0 with Spark Client
 FROM apache/airflow:2.9.0
 
+LABEL version="1.0.0" maintainer="lakehouse-team"
+
 # Set environment
 ENV AIRFLOW_HOME=/opt/airflow
 ENV AIRFLOW__CORE__DAGS_FOLDER=$AIRFLOW_HOME/dags
