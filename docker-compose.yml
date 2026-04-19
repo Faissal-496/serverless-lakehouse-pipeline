@@ -40,7 +40,7 @@ x-airflow-common: &airflow-common
     CONFIG_DIR: /app/config
 
   volumes:
-    - ./orchestration/airflow/dags:/opt/airflow/dags
+    - dags_sync:/opt/airflow/dags
     - ./src:/app/src
     - ./config:/app/config
     - airflow_logs:/opt/airflow/logs
@@ -53,6 +53,41 @@ x-airflow-common: &airflow-common
 # ======================================================================
 
 services:
+
+  # =========================
+  # GIT-SYNC (DAGs only)
+  # =========================
+  git-sync:
+    image: alpine/git:latest
+    container_name: lakehouse-git-sync
+    restart: unless-stopped
+    volumes:
+      - dags_sync:/dags
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        REPO="${GIT_SYNC_REPO:-https://github.com/Faissal-496/serverless-lakehouse-pipeline.git}"
+        BRANCH="${GIT_SYNC_BRANCH:-migration_prod}"
+        WORK=/tmp/repo
+        echo "git-sync: repo=$$REPO branch=$$BRANCH"
+        # Initial clone (sparse checkout for DAGs only)
+        git clone --depth 1 --branch "$$BRANCH" --no-checkout "$$REPO" "$$WORK"
+        cd "$$WORK"
+        git sparse-checkout init --cone
+        git sparse-checkout set orchestration/airflow/dags
+        git checkout "$$BRANCH"
+        cp -a orchestration/airflow/dags/* /dags/ 2>/dev/null || true
+        echo "git-sync: initial sync done"
+        # Periodic sync every 60s
+        while true; do
+          sleep 60
+          cd "$$WORK" && git pull --ff-only 2>/dev/null || true
+          cp -a orchestration/airflow/dags/* /dags/ 2>/dev/null || true
+          echo "git-sync: synced at $$(date -u +%H:%M:%S)"
+        done
+    networks:
+      - lakehouse_network
 
   # =========================
   # REDIS (on garde local)
@@ -173,6 +208,7 @@ services:
 volumes:
   airflow_logs:
   jenkins_home:
+  dags_sync:
 
 networks:
   lakehouse_network:
