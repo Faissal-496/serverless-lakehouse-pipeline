@@ -137,3 +137,4 @@ start_task >> bronze_ingest >> silver_transform >> gold_transform >> end_task
 
 if __name__ == "__main__":
     dag.cli()
+    print("this is a test for validating gitsync changes")
