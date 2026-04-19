@@ -2,6 +2,7 @@
 Complete Lakehouse ETL Pipeline DAG
 =====================================
 Pipeline: Bronze -> Silver -> Gold
+Supports: Spark Standalone (default) and EMR Serverless
 """
 
 from datetime import datetime, timedelta
@@ -14,6 +15,8 @@ import os
 # Configuration — single source of truth
 # ==============================================================================
 
+SPARK_MODE = os.getenv("SPARK_MODE", "standalone")  # standalone | emr-serverless
+
 SPARK_MASTER = os.getenv("SPARK_MASTER_URL", "spark://spark-master:7077")
 AIRFLOW_PYTHON = "/home/airflow/.local/bin/python3"
 S3_BUCKET = os.getenv("S3_BUCKET", "lakehouse-assurance-moto-prod")
@@ -23,6 +26,10 @@ APP_ENV = os.getenv("APP_ENV", "prod")
 SPARK_CONF_FILE = os.getenv("SPARK_PROPERTIES_FILE", "/app/config/spark/spark-defaults-local.conf")
 
 AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "eu-west-3")
+
+# EMR Serverless settings
+EMR_APP_ID = os.getenv("EMR_APP_ID", "")
+EMR_EXECUTION_ROLE_ARN = os.getenv("EMR_EXECUTION_ROLE_ARN", "")
 
 # Only env vars that MUST be forwarded to driver/executor JVMs
 SPARK_ENV_CONF = [
@@ -71,6 +78,12 @@ TASK_ENV = {
 
 
 def _spark_submit_cmd(job_script: str) -> str:
+    if SPARK_MODE == "emr-serverless":
+        return _emr_serverless_cmd(job_script)
+    return _standalone_submit_cmd(job_script)
+
+
+def _standalone_submit_cmd(job_script: str) -> str:
     return f"""
         set -e
         EXECUTION_DATE='{{{{ ds }}}}'
@@ -82,6 +95,57 @@ def _spark_submit_cmd(job_script: str) -> str:
             {_ENV_CONF} \
             {job_script} \
             --execution_date "$EXECUTION_DATE"
+    """
+
+
+def _emr_serverless_cmd(job_script: str) -> str:
+    """Submit job to EMR Serverless and poll until completion."""
+    s3_script = f"s3://{S3_BUCKET}/emr/scripts{job_script}"
+    s3_logs = f"s3://{S3_BUCKET}/logs/emr-serverless/"
+    spark_params = " ".join([
+        "--conf spark.sql.adaptive.enabled=true",
+        "--conf spark.sql.adaptive.coalescePartitions.enabled=true",
+        "--conf spark.sql.adaptive.skewJoin.enabled=true",
+        "--conf spark.driver.memory=2g",
+        "--conf spark.executor.memory=2g",
+        "--conf spark.dynamicAllocation.enabled=true",
+        "--conf spark.dynamicAllocation.minExecutors=1",
+        "--conf spark.dynamicAllocation.maxExecutors=6",
+        "--conf spark.sql.shuffle.partitions=16",
+        "--conf spark.serializer=org.apache.spark.serializer.KryoSerializer",
+        "--conf spark.io.compression.codec=snappy",
+        "--conf spark.sql.parquet.compression.codec=snappy",
+        "--conf spark.hadoop.fs.s3a.fast.upload=true",
+        "--conf spark.hadoop.fs.s3a.connection.maximum=100",
+    ])
+    return f"""
+        set -e
+        EXECUTION_DATE='{{{{ ds }}}}'
+
+        JOB_RUN_ID=$(aws emr-serverless start-job-run \
+          --application-id {EMR_APP_ID} \
+          --execution-role-arn {EMR_EXECUTION_ROLE_ARN} \
+          --name "lakehouse-$(basename {job_script} .py)-$EXECUTION_DATE" \
+          --job-driver '{{"sparkSubmit": {{"entryPoint": "{s3_script}", "entryPointArguments": ["--execution_date", "'$EXECUTION_DATE'"], "sparkSubmitParameters": "{spark_params}"}}}}' \
+          --configuration-overrides '{{"monitoringConfiguration": {{"s3MonitoringConfiguration": {{"logUri": "{s3_logs}"}}}}}}' \
+          --region {AWS_DEFAULT_REGION} \
+          --query 'jobRunId' --output text)
+
+        echo "EMR Job Run ID: $JOB_RUN_ID"
+
+        while true; do
+            STATUS=$(aws emr-serverless get-job-run \
+              --application-id {EMR_APP_ID} \
+              --job-run-id $JOB_RUN_ID \
+              --region {AWS_DEFAULT_REGION} \
+              --query 'jobRun.state' --output text)
+            echo "Status: $STATUS"
+            case "$STATUS" in
+                SUCCESS) echo "Job completed successfully"; break ;;
+                FAILED|CANCELLED) echo "Job $STATUS"; exit 1 ;;
+                *) sleep 15 ;;
+            esac
+        done
     """
 
 
