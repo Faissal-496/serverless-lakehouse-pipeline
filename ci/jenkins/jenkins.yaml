@@ -108,5 +108,8 @@ jobs:
       }
 
 security:
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: true
   globalJobDslSecurityConfiguration:
     useScriptSecurity: false
