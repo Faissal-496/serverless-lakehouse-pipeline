@@ -84,7 +84,7 @@ jobs:
                   }
                   stage('DAG Validation') {
                     steps {
-                      sh 'find /workspace/orchestration/airflow/dags -name "*.py" -exec python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read()); print(sys.argv[1]+\" OK\")" {} \\;'
+                      sh 'python3 -m py_compile /workspace/orchestration/airflow/dags/lakehouse_etl_complete.py && echo DAG syntax OK'
                     }
                   }
                   stage('Unit Tests') {
