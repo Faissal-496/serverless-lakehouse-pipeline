@@ -15,7 +15,7 @@ x-airflow-common: &airflow-common
 
     # --- Celery ---
     AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-    AIRFLOW__CELERY__RESULT_BACKEND: ${AIRFLOW_DB_CONN}
+    AIRFLOW__CELERY__RESULT_BACKEND: db+${AIRFLOW_DB_CONN}
 
     # --- DATABASE (RDS !!!) ---
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_DB_CONN}
