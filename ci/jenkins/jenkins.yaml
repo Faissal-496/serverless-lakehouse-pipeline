@@ -27,7 +27,7 @@ jenkins:
           - labelString: "docker-agent"
             name: "docker-agent"
             dockerTemplateBase:
-              image: "jenkins/agent:latest-jdk17"
+              image: "lakehouse-jenkins-agent:latest"
               mounts:
                 - "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
               environmentsString: |

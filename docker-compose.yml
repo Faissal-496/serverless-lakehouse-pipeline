@@ -193,6 +193,14 @@ services:
   # =========================
   # JENKINS
   # =========================
+  jenkins-agent:
+    build:
+      context: .
+      dockerfile: docker/jenkins-agent/Dockerfile
+    image: lakehouse-jenkins-agent:latest
+    profiles:
+      - build-only
+
   jenkins:
     build:
       context: .
