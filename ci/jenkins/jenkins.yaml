@@ -62,7 +62,7 @@ jobs:
                 remote {
                   url('https://github.com/Faissal-496/serverless-lakehouse-pipeline.git')
                 }
-                branches('*/migration_prod', '*/main', '*/dev')
+                branches('*/migration_prod')
               }
             }
             scriptPath('Jenkinsfile.local')
