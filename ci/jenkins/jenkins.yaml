@@ -30,7 +30,6 @@ jenkins:
               image: "jenkins/agent:latest-jdk17"
               mounts:
                 - "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
-                - "type=bind,source=${HOST_REPO_PATH},target=/workspace,readonly"
               environmentsString: |
                 PYTHONPATH=/workspace/src
             remoteFs: "/home/jenkins/agent"
@@ -50,63 +49,24 @@ jobs:
   - script: |
       pipelineJob('lakehouse-ci') {
         description('Lakehouse CI/CD — lint + DAG validation + test + package build')
+        properties {
+          githubProjectUrl('https://github.com/Faissal-496/serverless-lakehouse-pipeline/')
+        }
+        triggers {
+          githubPush()
+        }
         definition {
-          cps {
-            script("""\
-              pipeline {
-                agent { label 'docker-agent' }
-                options { timestamps(); timeout(time: 20, unit: 'MINUTES') }
-                environment { PYTHONPATH = '/workspace/src' }
-                stages {
-                  stage('Setup') {
-                    steps {
-                      sh '''
-                        apt-get update -qq && apt-get install -y -qq python3 python3-pip python3-venv > /dev/null 2>&1
-                        python3 -m pip install --break-system-packages --no-cache-dir -q \\
-                          autoflake==2.2.1 black==23.12.0 flake8==6.1.0 pytest==7.4.3 \\
-                          pyyaml==6.0.1 python-dotenv==1.0.0 tenacity==8.2.3 \\
-                          boto3 python-json-logger==2.0.7 build setuptools wheel
-                      '''
-                    }
-                  }
-                  stage('Quality Gates') {
-                    parallel {
-                      stage('Autoflake') {
-                        steps { sh 'python3 -m autoflake --check --remove-all-unused-imports --remove-unused-variables --recursive /workspace/src /workspace/tests' }
-                      }
-                      stage('Black') {
-                        steps { sh 'python3 -m black --check --diff /workspace/src /workspace/tests' }
-                      }
-                      stage('Flake8') {
-                        steps { sh 'python3 -m flake8 /workspace/src /workspace/tests --max-line-length=120 --exclude=__pycache__' }
-                      }
-                    }
-                  }
-                  stage('DAG Validation') {
-                    steps {
-                      sh 'python3 /workspace/ci/validate_dags.py /workspace/orchestration/airflow/dags'
-                    }
-                  }
-                  stage('Unit Tests') {
-                    steps { sh 'cd /workspace && PYTHONPATH=src python3 -m pytest tests/ -v --tb=short || true' }
-                  }
-                  stage('Package Build') {
-                    steps {
-                      sh '''
-                        cd /workspace
-                        python3 -m build --wheel --no-isolation 2>&1 || echo "Build skipped"
-                        ls -la dist/ 2>/dev/null || true
-                      '''
-                    }
-                  }
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/Faissal-496/serverless-lakehouse-pipeline.git')
                 }
-                post {
-                  success { echo 'CI pipeline PASSED.' }
-                  failure { echo 'CI pipeline FAILED.' }
-                }
+                branches('*/migration_prod', '*/main', '*/dev')
               }
-            """.stripIndent())
-            sandbox(true)
+            }
+            scriptPath('Jenkinsfile.local')
+            lightweight(true)
           }
         }
       }

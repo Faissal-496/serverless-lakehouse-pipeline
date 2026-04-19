@@ -18,7 +18,7 @@ pipeline {
     }
 
     environment {
-        PYTHONPATH = '/workspace/src'
+        PYTHONPATH = "${WORKSPACE}/src"
         PACKAGE_NAME = 'lakehouse'
     }
 
@@ -66,24 +66,24 @@ pipeline {
             parallel {
                 stage('Autoflake') {
                     steps {
-                        sh '''
-                            python3 -m autoflake \
-                                --check \
-                                --remove-all-unused-imports \
-                                --remove-unused-variables \
-                                --recursive \
-                                /workspace/src /workspace/tests
-                        '''
+                        sh """
+                            python3 -m autoflake \\
+                                --check \\
+                                --remove-all-unused-imports \\
+                                --remove-unused-variables \\
+                                --recursive \\
+                                ${WORKSPACE}/src ${WORKSPACE}/tests
+                        """
                     }
                 }
                 stage('Black') {
                     steps {
-                        sh 'python3 -m black --check --diff /workspace/src /workspace/tests'
+                        sh "python3 -m black --check --diff ${WORKSPACE}/src ${WORKSPACE}/tests"
                     }
                 }
                 stage('Flake8') {
                     steps {
-                        sh 'python3 -m flake8 /workspace/src /workspace/tests --max-line-length=120 --exclude=__pycache__'
+                        sh "python3 -m flake8 ${WORKSPACE}/src ${WORKSPACE}/tests --max-line-length=120 --exclude=__pycache__"
                     }
                 }
             }
@@ -91,63 +91,35 @@ pipeline {
 
         stage('DAG Validation') {
             steps {
-                sh '''
+                sh """
                     echo "=== Validating Airflow DAG syntax ==="
-                    cd /workspace
-                    python3 -c "
-import sys, importlib.util, os
-dag_dir = 'orchestration/airflow/dags'
-errors = 0
-for f in os.listdir(dag_dir):
-    if not f.endswith('.py'):
-        continue
-    path = os.path.join(dag_dir, f)
-    spec = importlib.util.spec_from_file_location(f[:-3], path)
-    mod = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(mod)
-        dags = [v for v in vars(mod).values() if hasattr(v, 'dag_id')]
-        print(f'OK: {f} — {len(dags)} DAG(s) found')
-    except Exception as e:
-        print(f'FAIL: {f} — {e}')
-        errors += 1
-if errors:
-    sys.exit(1)
-print('All DAGs validated successfully')
-"
+                    python3 ${WORKSPACE}/ci/validate_dags.py ${WORKSPACE}/orchestration/airflow/dags
                     echo "=== DAG Validation complete ==="
-                '''
+                """
             }
         }
 
         stage('Unit Tests') {
             steps {
-                sh '''
-                    cd /workspace
+                sh """
+                    cd ${WORKSPACE}
                     PYTHONPATH=src python3 -m pytest tests/ -v --tb=short --junitxml=test-results.xml || true
-                '''
+                """
             }
         }
 
         stage('Package Build') {
             steps {
-                sh '''
-                    cd /workspace
+                sh """
+                    cd ${WORKSPACE}
                     echo "=== Building Python package ==="
                     python3 -m build --wheel --no-isolation 2>&1 || echo "Package build skipped (build deps missing)"
                     if [ -d dist ]; then
                         echo "=== Built artifacts ==="
                         ls -la dist/
-                        VERSION=$(python3 -c "
-import configparser, tomllib
-with open('pyproject.toml','rb') as f:
-    d = tomllib.load(f)
-print(d.get('project',{}).get('version','unknown'))
-" 2>/dev/null || echo "unknown")
-                        echo "Package version: ${VERSION}"
                     fi
                     echo "=== Package Build complete ==="
-                '''
+                """
             }
         }
     }
