@@ -91,6 +91,14 @@ RUN mkdir -p /opt/lakehouse/{data,logs,src,logs/spark-events} && \
     chmod 777 /opt/lakehouse/logs/spark-events
 
 # ============================================================================
+# Install lakehouse Python package
+# ============================================================================
+COPY pyproject.toml setup.cfg /opt/lakehouse/
+COPY src/ /opt/lakehouse/src/
+RUN python3 -m pip install --no-cache-dir -e /opt/lakehouse && \
+    chown -R spark:spark /opt/lakehouse
+
+# ============================================================================
 # Runtime Configuration - Switch to spark user
 # ============================================================================
 USER spark

@@ -56,3 +56,10 @@ RUN mkdir -p /opt/airflow/startup && \
 USER airflow
 
 RUN echo 'source /opt/airflow/startup/configure-env.sh' >> ~/.bashrc
+
+# ============================================================================
+# Install lakehouse Python package
+# ============================================================================
+COPY --chown=airflow:0 pyproject.toml setup.cfg /opt/lakehouse-pkg/
+COPY --chown=airflow:0 src/ /opt/lakehouse-pkg/src/
+RUN pip install --no-cache-dir -e /opt/lakehouse-pkg
