@@ -54,3 +54,8 @@ docs/*.md
 Analysis/
 .env.docker
 docker-compose-local-ha.yml
+
+# Package build artifacts
+*.egg-info/
+dist/
+build/
