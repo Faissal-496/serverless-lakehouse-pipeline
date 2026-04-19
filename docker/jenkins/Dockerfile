@@ -16,7 +16,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends docker-ce-cli && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd -f docker && usermod -aG docker jenkins
+RUN groupadd -g 999 docker && usermod -aG docker jenkins
 
 # Install plugins — NO pinned versions, let the CLI pick what's compatible
 # with the Jenkins LTS version baked into this image.

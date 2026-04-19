@@ -26,10 +26,11 @@ pipeline {
             steps {
                 script {
                     def branch = env.GIT_BRANCH?.replaceAll('origin/', '') ?: ''
-                    if (branch != 'dev') {
-                        echo "Skipping build: branch '${branch}' is not 'dev'"
+                    def allowed = ['dev', 'migration_prod']
+                    if (!allowed.contains(branch)) {
+                        echo "Skipping build: branch '${branch}' is not in ${allowed}"
                         currentBuild.result = 'NOT_BUILT'
-                        error("Not the dev branch — skipping.")
+                        error("Branch not allowed — skipping.")
                     }
                     echo "Building branch: ${branch}"
                 }
