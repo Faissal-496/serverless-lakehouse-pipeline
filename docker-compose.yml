@@ -34,6 +34,15 @@ x-airflow-common: &airflow-common
     AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
     S3_BUCKET: ${S3_BUCKET}
 
+    # --- Remote Logging to S3 ---
+    AIRFLOW__LOGGING__REMOTE_LOGGING: "true"
+    AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID: "aws_default"
+    AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER: "s3://${S3_BUCKET}/logs/airflow"
+    AIRFLOW__LOGGING__ENCRYPT_S3_LOGS: "false"
+
+    # --- AWS Connection (IAM role via instance metadata) ---
+    AIRFLOW_CONN_AWS_DEFAULT: "aws://?region_name=${AWS_DEFAULT_REGION}"
+
     # --- App ---
     PYTHONPATH: /app/src
     APP_ENV: prod
