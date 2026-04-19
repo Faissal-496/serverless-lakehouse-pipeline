@@ -18,7 +18,7 @@ terraform {
 }
 
 locals {
-  engine_major_version = tonumber(regex("^([0-9]+)", var.engine_version))
+  engine_major_version = tonumber(regex("^([0-9]+)", var.engine_version)[0])
   parameter_family     = "postgres${local.engine_major_version}"
 }
 

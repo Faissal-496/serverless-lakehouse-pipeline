@@ -106,10 +106,10 @@ locals {
   attachments = {
     for item in flatten([
       for tg_key, tg in var.target_groups : [
-        for instance_id in var.target_instance_ids : {
-          key         = "${tg_key}-${instance_id}"
+        for idx in range(length(var.target_instance_ids)) : {
+          key         = "${tg_key}-${idx}"
           tg_key      = tg_key
-          instance_id = instance_id
+          instance_id = var.target_instance_ids[idx]
           port        = tg.port
         }
       ]
