@@ -40,7 +40,7 @@ RUN jenkins-plugin-cli --latest true --verbose --plugins \
         ws-cleanup
 
 # Verify every .jpi has a valid MANIFEST.MF — fail the build if any is corrupt
-RUN echo "=== Verifying plugin integrity ===" && \
+RUN echo "_Verifying plugin integrity_" && \
     FAIL=0 && \
     for jpi in /usr/share/jenkins/ref/plugins/*.jpi; do \
         if ! unzip -t "$jpi" META-INF/MANIFEST.MF > /dev/null 2>&1; then \
@@ -48,7 +48,7 @@ RUN echo "=== Verifying plugin integrity ===" && \
         fi; \
     done && \
     if [ "$FAIL" = "1" ]; then echo "Plugin verification FAILED" && exit 1; fi && \
-    echo "=== All plugins verified OK ==="
+    echo "_All plugins verified OK_"
 
 # CasC config — OUTSIDE /var/jenkins_home (volume overwrites that dir)
 RUN mkdir -p /usr/share/jenkins/ref/casc

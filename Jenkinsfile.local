@@ -1,9 +1,6 @@
-// ============================================================================
 // Lakehouse CI/CD Pipeline
-// ============================================================================
 // Flow: Lint → DAG Validation → Unit Tests → Package Build → Deploy
 // Branches: dev, migration_prod
-// ============================================================================
 
 pipeline {
     agent { label 'docker-agent' }
@@ -41,7 +38,7 @@ pipeline {
         stage('Setup') {
             steps {
                 sh '''
-                    echo "=== Installing Python toolchain ==="
+                    echo "Installing Python toolchain"
                     apt-get update -qq && \
                     apt-get install -y -qq python3 python3-pip python3-venv > /dev/null 2>&1
                     python3 -m pip install --break-system-packages --no-cache-dir -q \
@@ -57,7 +54,7 @@ pipeline {
                         build \
                         setuptools \
                         wheel
-                    echo "=== Setup complete ==="
+                    echo "Setup complete"
                 '''
             }
         }
@@ -92,9 +89,9 @@ pipeline {
         stage('DAG Validation') {
             steps {
                 sh """
-                    echo "=== Validating Airflow DAG syntax ==="
+                    echo "Validating Airflow DAG syntax"
                     python3 ${WORKSPACE}/ci/validate_dags.py ${WORKSPACE}/orchestration/airflow/dags
-                    echo "=== DAG Validation complete ==="
+                    echo "DAG Validation complete"
                 """
             }
         }
@@ -112,13 +109,13 @@ pipeline {
             steps {
                 sh """
                     cd ${WORKSPACE}
-                    echo "=== Building Python package ==="
+                    echo "Building Python package   "
                     python3 -m build --wheel --no-isolation 2>&1 || echo "Package build skipped (build deps missing)"
                     if [ -d dist ]; then
-                        echo "=== Built artifacts ==="
+                        echo " Built artifacts   "
                         ls -la dist/
                     fi
-                    echo "=== Package Build complete ==="
+                    echo "Package Build complete   "
                 """
             }
         }
@@ -138,12 +135,12 @@ pipeline {
             }
             steps {
                 sh """
-                    echo "=== Installing Docker CLI & AWS CLI ==="
+                    echo "Installing Docker CLI & AWS CLI   "
                     apt-get update -qq
                     apt-get install -y -qq docker.io > /dev/null 2>&1
                     pip3 install --break-system-packages -q awscli > /dev/null 2>&1
 
-                    echo "=== ECR Login ==="
+                    echo "ECR Login"
                     aws ecr get-login-password --region eu-west-3 | \
                         docker login --username AWS --password-stdin ${ECR_REGISTRY}
 
@@ -155,7 +152,7 @@ pipeline {
 
                     # --- Airflow image ---
                     if echo "\$CHANGED" | grep -qE 'docker/airflow|src/|pyproject.toml|requirements'; then
-                        echo "=== Building Airflow image ==="
+                        echo "Building Airflow image"
                         docker build -t ${ECR_REGISTRY}/lakehouse/airflow:\$TAG \
                                      -t ${ECR_REGISTRY}/lakehouse/airflow:latest \
                                      -f docker/airflow/Dockerfile .
@@ -165,7 +162,7 @@ pipeline {
 
                     # --- Spark images ---
                     if echo "\$CHANGED" | grep -q 'docker/spark'; then
-                        echo "=== Building Spark Base image ==="
+                        echo "Building Spark Base image"
                         docker build -t lakehouse-spark-base:latest \
                                      -t ${ECR_REGISTRY}/lakehouse/spark-base:\$TAG \
                                      -t ${ECR_REGISTRY}/lakehouse/spark-base:latest \
@@ -173,14 +170,14 @@ pipeline {
                         docker push ${ECR_REGISTRY}/lakehouse/spark-base:\$TAG
                         docker push ${ECR_REGISTRY}/lakehouse/spark-base:latest
 
-                        echo "=== Building Spark Master image ==="
+                        echo "Building Spark Master image"
                         docker build -t ${ECR_REGISTRY}/lakehouse/spark-master:\$TAG \
                                      -t ${ECR_REGISTRY}/lakehouse/spark-master:latest \
                                      -f docker/spark/Dockerfile.master .
                         docker push ${ECR_REGISTRY}/lakehouse/spark-master:\$TAG
                         docker push ${ECR_REGISTRY}/lakehouse/spark-master:latest
 
-                        echo "=== Building Spark Worker image ==="
+                        echo "Building Spark Worker image"
                         docker build -t ${ECR_REGISTRY}/lakehouse/spark-worker:\$TAG \
                                      -t ${ECR_REGISTRY}/lakehouse/spark-worker:latest \
                                      -f docker/spark/Dockerfile.worker .
@@ -190,7 +187,7 @@ pipeline {
 
                     # --- Jenkins image ---
                     if echo "\$CHANGED" | grep -q 'docker/jenkins'; then
-                        echo "=== Building Jenkins image ==="
+                        echo "Building Jenkins image"
                         docker build -t ${ECR_REGISTRY}/lakehouse/jenkins:\$TAG \
                                      -t ${ECR_REGISTRY}/lakehouse/jenkins:latest \
                                      -f docker/jenkins/Dockerfile .
@@ -198,7 +195,7 @@ pipeline {
                         docker push ${ECR_REGISTRY}/lakehouse/jenkins:latest
                     fi
 
-                    echo "=== Docker Build & Push complete ==="
+                    echo "Docker Build & Push complete"
                 """
             }
         }
