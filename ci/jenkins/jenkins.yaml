@@ -84,7 +84,7 @@ jobs:
                   }
                   stage('DAG Validation') {
                     steps {
-                      sh 'cd /workspace && python3 -c "import ast; [ast.parse(open(f\\'orchestration/airflow/dags/{f}\\').read()) for f in __import__(\\'os\\').listdir(\\'orchestration/airflow/dags\\') if f.endswith(\\'.py\\')] and print(\\'All DAGs syntax OK\\')"'
+                      sh 'find /workspace/orchestration/airflow/dags -name "*.py" -exec python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read()); print(sys.argv[1]+\" OK\")" {} \\;'
                     }
                   }
                   stage('Unit Tests') {
@@ -109,19 +109,6 @@ jobs:
             sandbox(true)
           }
         }
-      }
-                }
-                post {
-                  success { echo 'CI pipeline PASSED.' }
-                  failure { echo 'CI pipeline FAILED.' }
-                }
-              }
-            """.stripIndent())
-            sandbox(true)
-          }
-        }
-      }
-
 security:
   globalJobDslSecurityConfiguration:
     useScriptSecurity: false
