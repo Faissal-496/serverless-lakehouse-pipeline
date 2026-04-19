@@ -84,7 +84,7 @@ jobs:
                   }
                   stage('DAG Validation') {
                     steps {
-                      sh 'python3 -B -m py_compile /workspace/orchestration/airflow/dags/lakehouse_etl_complete.py && echo DAG syntax OK'
+                      sh 'python3 /workspace/ci/validate_dags.py /workspace/orchestration/airflow/dags'
                     }
                   }
                   stage('Unit Tests') {
