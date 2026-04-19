@@ -109,6 +109,8 @@ jobs:
             sandbox(true)
           }
         }
+      }
+
 security:
   globalJobDslSecurityConfiguration:
     useScriptSecurity: false
