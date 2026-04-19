@@ -78,3 +78,21 @@ variable "tags" {
   description = "Tags"
   default     = {}
 }
+
+variable "publicly_accessible" {
+  type        = bool
+  description = "Whether the DB should have a public endpoint"
+  default     = false
+}
+
+variable "deletion_protection" {
+  type        = bool
+  description = "Enable deletion protection (recommended for prod)"
+  default     = true
+}
+
+variable "skip_final_snapshot" {
+  type        = bool
+  description = "Skip final snapshot on destroy (not recommended for prod)"
+  default     = false
+}

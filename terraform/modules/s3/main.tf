@@ -54,7 +54,7 @@ resource "aws_s3_bucket_versioning" "data_lake" {
 
   versioning_configuration {
     status     = var.enable_versioning ? "Enabled" : "Disabled"
-    mfa_delete = "Disabled"  # Set to "Enabled" only if MFA protection required
+    mfa_delete = "Disabled" # Set to "Enabled" only if MFA protection required
   }
 }
 
@@ -63,20 +63,21 @@ resource "aws_s3_bucket_versioning" "data_lake" {
 # ============================================================================
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "data_lake" {
+  count  = var.enable_encryption ? 1 : 0
   bucket = aws_s3_bucket.data_lake.id
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm      = var.kms_key_enabled ? "aws:kms" : "AES256"
-      kms_master_key_id  = var.kms_key_enabled ? aws_kms_key.s3[0].arn : null
+      sse_algorithm     = var.kms_key_enabled ? "aws:kms" : "AES256"
+      kms_master_key_id = var.kms_key_enabled ? aws_kms_key.s3[0].arn : null
     }
-    bucket_key_enabled = true  # Reduces KMS API calls + costs
+    bucket_key_enabled = true # Reduces KMS API calls + costs
   }
 }
 
 # Optional: KMS key for advanced encryption (costs extra)
 resource "aws_kms_key" "s3" {
-  count = var.kms_key_enabled ? 1 : 0
+  count = var.enable_encryption && var.kms_key_enabled ? 1 : 0
 
   description             = "KMS key for ${var.bucket_name} encryption"
   deletion_window_in_days = 10
@@ -113,7 +114,7 @@ resource "aws_kms_key" "s3" {
 }
 
 resource "aws_kms_alias" "s3" {
-  count         = var.kms_key_enabled ? 1 : 0
+  count         = var.enable_encryption && var.kms_key_enabled ? 1 : 0
   name          = "alias/${var.bucket_name}"
   target_key_id = aws_kms_key.s3[0].key_id
 }
@@ -203,7 +204,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "data_lake" {
     }
 
     noncurrent_version_expiration {
-      noncurrent_days = 90  # Delete old versions after 90 days
+      noncurrent_days = 90 # Delete old versions after 90 days
     }
   }
 }

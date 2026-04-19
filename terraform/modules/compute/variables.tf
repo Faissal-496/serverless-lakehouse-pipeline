@@ -9,12 +9,13 @@ variable "name" {
 
 variable "role_tag" {
   type        = string
-  description = "Role tag for instances"
+  description = "Role tag"
 }
 
 variable "instance_count" {
   type        = number
   description = "Number of instances"
+  default     = 1
 }
 
 variable "instance_type" {
@@ -39,13 +40,13 @@ variable "security_group_ids" {
 
 variable "associate_public_ip" {
   type        = bool
-  description = "Associate public IP"
-  default     = true
+  description = "Associate a public IP to the instance"
+  default     = false
 }
 
 variable "key_name" {
   type        = string
-  description = "SSH key name"
+  description = "EC2 key pair name"
   default     = ""
 }
 
@@ -64,7 +65,7 @@ variable "user_data" {
 variable "root_volume_size" {
   type        = number
   description = "Root volume size (GB)"
-  default     = 20
+  default     = 50
 }
 
 variable "root_volume_type" {
@@ -75,6 +76,6 @@ variable "root_volume_type" {
 
 variable "tags" {
   type        = map(string)
-  description = "Tags to apply"
+  description = "Tags"
   default     = {}
 }

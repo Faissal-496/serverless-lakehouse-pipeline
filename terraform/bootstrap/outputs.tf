@@ -5,5 +5,5 @@ output "state_bucket_name" {
 
 output "lock_table_name" {
   description = "Terraform lock table name"
-  value       = aws_dynamodb_table.tf_locks.name
+  value       = aws_dynamodb_table.tf_lock.name
 }

@@ -1,25 +1,31 @@
 variable "aws_region" {
   type        = string
-  description = "AWS region for deployment"
+  description = "AWS region"
   default     = "eu-west-3"
 }
 
 variable "environment" {
   type        = string
-  description = "Environment name (dev, staging, prod)"
+  description = "Environment name"
   default     = "prod"
 }
 
 variable "project_name" {
   type        = string
   description = "Project name"
-  default     = "lakehouse-assurance"
+  default     = "serverless-lakehouse"
 }
 
-variable "cost_center" {
-  type        = string
-  description = "Cost center"
-  default     = "insurance-analytics"
+variable "tags" {
+  type        = map(string)
+  description = "Tags to apply"
+  default     = {}
+}
+
+variable "additional_tags" {
+  type        = map(string)
+  description = "Additional tags to apply"
+  default     = {}
 }
 
 variable "vpc_cidr" {
@@ -36,168 +42,97 @@ variable "public_subnet_cidrs" {
 
 variable "private_subnet_cidrs" {
   type        = list(string)
-  description = "Private subnet CIDRs"
+  description = "Private subnet CIDRs (used for RDS)"
   default     = ["10.0.11.0/24", "10.0.12.0/24"]
 }
 
 variable "enable_nat_gateway" {
   type        = bool
-  description = "Enable NAT gateway"
-  default     = true
+  description = "Enable NAT gateway for private subnets"
+  default     = false
 }
 
 variable "allowed_ingress_cidr_blocks" {
   type        = list(string)
-  description = "CIDR blocks allowed to access public UIs"
+  description = "CIDR blocks allowed to access public endpoints (ALB)"
   default     = ["0.0.0.0/0"]
 }
 
 variable "ssh_cidr_blocks" {
   type        = list(string)
-  description = "CIDR blocks allowed to SSH"
+  description = "CIDR blocks allowed to SSH to the EC2 instance (use /32)"
   default     = []
 }
 
 variable "ec2_instance_type" {
   type        = string
   description = "EC2 instance type"
-  default     = "t3.micro"
+  default     = "t3.large"
 }
 
 variable "ec2_key_name" {
   type        = string
-  description = "SSH key pair name"
+  description = "EC2 key pair name (for SSH)"
   default     = ""
 }
 
-variable "airflow_scheduler_count" {
+variable "ec2_root_volume_size" {
   type        = number
-  description = "Number of Airflow schedulers"
-  default     = 2
+  description = "Root volume size (GB)"
+  default     = 80
 }
 
-variable "airflow_worker_desired" {
-  type        = number
-  description = "Desired Airflow worker count"
-  default     = 2
-}
-
-variable "airflow_worker_min" {
-  type        = number
-  description = "Minimum Airflow workers"
-  default     = 1
-}
-
-variable "airflow_worker_max" {
-  type        = number
-  description = "Maximum Airflow workers"
-  default     = 4
-}
-
-variable "jenkins_controller_count" {
-  type        = number
-  description = "Number of Jenkins controllers"
-  default     = 2
-}
-
-variable "jenkins_agent_count" {
-  type        = number
-  description = "Number of Jenkins agents"
-  default     = 4
-}
-
-variable "jenkins_admin_user" {
+variable "repo_url" {
   type        = string
-  description = "Jenkins admin username"
-  sensitive   = true
-}
-
-variable "jenkins_admin_password" {
-  type        = string
-  description = "Jenkins admin password"
-  sensitive   = true
-}
-
-variable "mq_engine_version" {
-  type        = string
-  description = "RabbitMQ engine version"
-  default     = "3.11.20"
-}
-
-variable "mq_instance_type" {
-  type        = string
-  description = "Amazon MQ instance type"
-  default     = "mq.t3.micro"
-}
-
-variable "mq_deployment_mode" {
-  type        = string
-  description = "Amazon MQ deployment mode"
-  default     = "SINGLE_INSTANCE"
-}
-
-variable "mq_username" {
-  type        = string
-  description = "RabbitMQ username"
-  sensitive   = true
-}
-
-variable "mq_password" {
-  type        = string
-  description = "RabbitMQ password"
-  sensitive   = true
-}
-
-variable "ecr_repository_names" {
-  type        = list(string)
-  description = "ECR repositories"
-  default     = [
-    "airflow-runtime",
-    "spark-runtime",
-    "jenkins-agent",
-    "lakehouse-base"
-  ]
-}
-
-variable "airflow_ecr_repo" {
-  type        = string
-  description = "ECR repo for Airflow image"
-  default     = "airflow-runtime"
-}
-
-variable "airflow_image_tag" {
-  type        = string
-  description = "Airflow image tag (short SHA)"
-  default     = "latest"
-}
-
-variable "airflow_dags_repo" {
-  type        = string
-  description = "Git repo for DAGs"
+  description = "Git repository URL to clone on EC2"
   default     = "https://github.com/Faissal-496/serverless-lakehouse-pipeline.git"
 }
 
-variable "airflow_dags_branch" {
+variable "repo_branch" {
   type        = string
-  description = "Git branch for DAGs"
-  default     = "main"
+  description = "Git branch to checkout on EC2"
+  default     = "migration_prod"
 }
 
-variable "airflow_fernet_key" {
+variable "host_repo_path" {
   type        = string
-  description = "Airflow Fernet key"
-  sensitive   = true
+  description = "Host path where the repo will be cloned (also mounted into Jenkins agents)"
+  default     = "/opt/serverless-lakehouse-pipeline"
 }
 
-variable "airflow_webserver_secret_key" {
+variable "airflow_domain" {
   type        = string
-  description = "Airflow webserver secret key"
-  sensitive   = true
+  description = "Public hostname for Airflow (ALB host-based routing)"
+  default     = "airflow.octaa.tech"
+}
+
+variable "jenkins_domain" {
+  type        = string
+  description = "Public hostname for Jenkins (ALB host-based routing)"
+  default     = "jenkins.octaa.tech"
+}
+
+variable "enable_https" {
+  type        = bool
+  description = "Enable HTTPS listener on ALB and redirect HTTP->HTTPS"
+  default     = true
+}
+
+variable "alb_certificate_arn" {
+  type        = string
+  description = "ACM certificate ARN for HTTPS listener (must cover airflow_domain + jenkins_domain)"
+  default     = ""
+}
+
+variable "alb_ssl_policy" {
+  type        = string
+  description = "ALB SSL policy"
+  default     = "ELBSecurityPolicy-2016-08"
 }
 
 variable "s3_bucket_name" {
   type        = string
-  description = "S3 bucket name"
+  description = "S3 bucket name for the data lake"
 }
 
 variable "s3_enable_versioning" {
@@ -208,158 +143,167 @@ variable "s3_enable_versioning" {
 
 variable "s3_enable_encryption" {
   type        = bool
-  description = "Enable S3 encryption"
+  description = "Enable S3 default encryption"
   default     = true
 }
 
 variable "s3_kms_key_enabled" {
   type        = bool
-  description = "Use KMS encryption"
+  description = "Use a customer-managed KMS key for S3 encryption"
   default     = false
+}
+
+variable "s3_enable_access_logging" {
+  type        = bool
+  description = "Enable S3 access logs bucket"
+  default     = true
 }
 
 variable "s3_lifecycle_days_to_ia" {
   type        = number
-  description = "Days to Intelligent-Tiering"
+  description = "Days before transitioning to Intelligent-Tiering"
   default     = 30
 }
 
 variable "s3_lifecycle_days_to_glacier" {
   type        = number
-  description = "Days to Glacier"
+  description = "Days before transitioning to Glacier"
   default     = 180
-}
-
-variable "s3_enable_access_logging" {
-  type        = bool
-  description = "Enable S3 access logging"
-  default     = true
 }
 
 variable "rds_instance_class" {
   type        = string
   description = "RDS instance class"
-  default     = "db.t3.micro"
+  default     = "db.t3.medium"
 }
 
 variable "rds_allocated_storage" {
   type        = number
-  description = "RDS allocated storage"
+  description = "RDS allocated storage (GB)"
   default     = 20
 }
 
 variable "rds_max_allocated_storage" {
   type        = number
-  description = "RDS max storage"
+  description = "RDS max allocated storage (GB)"
   default     = 200
 }
 
 variable "rds_backup_retention_days" {
   type        = number
-  description = "RDS backup retention days"
+  description = "RDS backup retention (days)"
   default     = 7
 }
 
 variable "rds_multi_az" {
   type        = bool
-  description = "Enable RDS Multi-AZ"
-  default     = false
+  description = "Enable Multi-AZ for RDS"
+  default     = true
 }
 
 variable "rds_force_ssl" {
   type        = bool
-  description = "Force SSL for PostgreSQL"
+  description = "Force SSL on RDS PostgreSQL"
   default     = true
 }
 
 variable "rds_engine_version" {
   type        = string
-  description = "PostgreSQL version"
+  description = "PostgreSQL engine version"
   default     = "15.3"
 }
 
 variable "rds_database_name" {
   type        = string
-  description = "RDS database name"
+  description = "Database name"
   default     = "lakehouse_prod"
 }
 
 variable "rds_master_username" {
   type        = string
-  description = "RDS master username"
-  sensitive   = true
+  description = "Master username"
+  default     = "lakehouse_admin"
 }
 
 variable "rds_master_password" {
   type        = string
-  description = "RDS master password"
+  description = "Master password (leave empty to auto-generate)"
   sensitive   = true
+  default     = ""
 }
 
-variable "cloudwatch_log_retention_days" {
-  type        = number
-  description = "CloudWatch log retention days"
-  default     = 90
-}
-
-variable "cloudwatch_alarm_email" {
-  type        = string
-  description = "CloudWatch alarm email"
-}
-
-variable "cloudwatch_enable_dashboards" {
+variable "rds_publicly_accessible" {
   type        = bool
-  description = "Enable CloudWatch dashboards"
+  description = "Whether the DB should have a public endpoint"
   default     = false
+}
+
+variable "rds_deletion_protection" {
+  type        = bool
+  description = "Enable deletion protection"
+  default     = true
 }
 
 variable "enable_secrets_manager" {
   type        = bool
-  description = "Enable AWS Secrets Manager"
-  default     = false
+  description = "Store secrets in AWS Secrets Manager and let EC2 bootstrap fetch them"
+  default     = true
 }
 
-variable "glue_catalog_database_name" {
+variable "airflow_admin_user" {
   type        = string
-  description = "Glue Catalog database name"
-  default     = "lakehouse"
+  description = "Airflow admin user"
+  default     = "admin"
 }
 
-variable "emr_serverless_application_id" {
+variable "airflow_admin_password" {
   type        = string
-  description = "EMR Serverless application ID"
+  description = "Airflow admin password (leave empty to auto-generate)"
+  sensitive   = true
   default     = ""
 }
 
-variable "emr_serverless_execution_role_arn" {
+variable "airflow_admin_email" {
   type        = string
-  description = "EMR Serverless execution role ARN"
+  description = "Airflow admin email"
+  default     = "admin@example.com"
+}
+
+variable "airflow_fernet_key" {
+  type        = string
+  description = "Airflow Fernet key (leave empty to auto-generate)"
+  sensitive   = true
   default     = ""
 }
 
-variable "alb_certificate_arn" {
+variable "airflow_webserver_secret_key" {
   type        = string
-  description = "ACM certificate ARN"
+  description = "Airflow webserver secret key (leave empty to auto-generate)"
+  sensitive   = true
+  default     = ""
 }
 
-variable "alb_ssl_policy" {
+variable "airflow_base_url" {
   type        = string
-  description = "ALB SSL policy"
-  default     = "ELBSecurityPolicy-2016-08"
+  description = "Airflow public base URL (leave empty to derive from airflow_domain)"
+  default     = ""
 }
 
-variable "tags" {
-  type        = map(string)
-  description = "Common tags"
-  default = {
-    Environment = "development"
-    ManagedBy   = "Terraform"
-    Project     = "lakehouse-assurance"
-  }
+variable "jenkins_admin_user" {
+  type        = string
+  description = "Jenkins admin user"
+  default     = "admin"
 }
 
-variable "additional_tags" {
-  type        = map(string)
-  description = "Additional tags"
-  default     = {}
+variable "jenkins_admin_password" {
+  type        = string
+  description = "Jenkins admin password (leave empty to auto-generate)"
+  sensitive   = true
+  default     = ""
+}
+
+variable "jenkins_public_url" {
+  type        = string
+  description = "Jenkins public URL (leave empty to derive from jenkins_domain)"
+  default     = ""
 }

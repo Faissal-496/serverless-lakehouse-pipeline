@@ -42,9 +42,9 @@ resource "aws_security_group" "alb" {
   tags = merge(var.tags, { Name = "${var.name_prefix}-alb-sg" })
 }
 
-resource "aws_security_group" "airflow" {
-  name        = "${var.name_prefix}-airflow-sg"
-  description = "Airflow schedulers/workers"
+resource "aws_security_group" "app" {
+  name        = "${var.name_prefix}-app-sg"
+  description = "EC2 instance running Docker Compose (Airflow + Spark + Jenkins)"
   vpc_id      = var.vpc_id
 
   ingress {
@@ -55,48 +55,14 @@ resource "aws_security_group" "airflow" {
     security_groups = [aws_security_group.alb.id]
   }
 
-  dynamic "ingress" {
-    for_each = length(var.ssh_cidr_blocks) > 0 ? [1] : []
-    content {
-      description = "SSH"
-      from_port   = 22
-      to_port     = 22
-      protocol    = "tcp"
-      cidr_blocks = var.ssh_cidr_blocks
-    }
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(var.tags, { Name = "${var.name_prefix}-airflow-sg" })
-}
-
-resource "aws_security_group" "jenkins" {
-  name        = "${var.name_prefix}-jenkins-sg"
-  description = "Jenkins controllers"
-  vpc_id      = var.vpc_id
-
   ingress {
     description     = "Jenkins UI via ALB"
-    from_port       = 8080
-    to_port         = 8080
+    from_port       = 9080
+    to_port         = 9080
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
   }
 
-  ingress {
-    description = "Jenkins agents (JNLP)"
-    from_port   = 50000
-    to_port     = 50000
-    protocol    = "tcp"
-    self        = true
-  }
-
   dynamic "ingress" {
     for_each = length(var.ssh_cidr_blocks) > 0 ? [1] : []
     content {
@@ -115,38 +81,7 @@ resource "aws_security_group" "jenkins" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = merge(var.tags, { Name = "${var.name_prefix}-jenkins-sg" })
-}
-
-resource "aws_security_group" "mq" {
-  name        = "${var.name_prefix}-mq-sg"
-  description = "Amazon MQ (RabbitMQ)"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    description     = "AMQP"
-    from_port       = 5672
-    to_port         = 5672
-    protocol        = "tcp"
-    security_groups = [aws_security_group.airflow.id]
-  }
-
-  ingress {
-    description     = "AMQPS"
-    from_port       = 5671
-    to_port         = 5671
-    protocol        = "tcp"
-    security_groups = [aws_security_group.airflow.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(var.tags, { Name = "${var.name_prefix}-mq-sg" })
+  tags = merge(var.tags, { Name = "${var.name_prefix}-app-sg" })
 }
 
 resource "aws_security_group" "rds" {
@@ -159,7 +94,7 @@ resource "aws_security_group" "rds" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.airflow.id]
+    security_groups = [aws_security_group.app.id]
   }
 
   egress {
@@ -170,27 +105,4 @@ resource "aws_security_group" "rds" {
   }
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-rds-sg" })
-}
-
-resource "aws_security_group" "efs" {
-  name        = "${var.name_prefix}-efs-sg"
-  description = "EFS for Jenkins shared storage"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    description     = "NFS"
-    from_port       = 2049
-    to_port         = 2049
-    protocol        = "tcp"
-    security_groups = [aws_security_group.jenkins.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(var.tags, { Name = "${var.name_prefix}-efs-sg" })
 }

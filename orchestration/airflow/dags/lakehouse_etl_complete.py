@@ -22,8 +22,6 @@ APP_ENV = os.getenv("APP_ENV", "prod")
 # Select config file based on environment
 SPARK_CONF_FILE = os.getenv("SPARK_PROPERTIES_FILE", "/app/config/spark/spark-defaults-local.conf")
 
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
 AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "eu-west-3")
 
 # Only env vars that MUST be forwarded to driver/executor JVMs
@@ -35,8 +33,6 @@ SPARK_ENV_CONF = [
     "spark.driverEnv.CONFIG_DIR=/app/config",
     "spark.driverEnv.DATA_BASE_PATH=/data",
     f"spark.driverEnv.S3_BUCKET={S3_BUCKET}",
-    f"spark.driverEnv.AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID}",
-    f"spark.driverEnv.AWS_SECRET_ACCESS_KEY={AWS_SECRET_ACCESS_KEY}",
     f"spark.driverEnv.AWS_DEFAULT_REGION={AWS_DEFAULT_REGION}",
     "spark.executorEnv.PYTHONPATH=/app/src",
     "spark.executorEnv.PYSPARK_PYTHON=/usr/bin/python3",
@@ -44,10 +40,21 @@ SPARK_ENV_CONF = [
     "spark.executorEnv.CONFIG_DIR=/app/config",
     "spark.executorEnv.DATA_BASE_PATH=/data",
     f"spark.executorEnv.S3_BUCKET={S3_BUCKET}",
-    f"spark.executorEnv.AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID}",
-    f"spark.executorEnv.AWS_SECRET_ACCESS_KEY={AWS_SECRET_ACCESS_KEY}",
     f"spark.executorEnv.AWS_DEFAULT_REGION={AWS_DEFAULT_REGION}",
 ]
+
+# Optional: forward static credentials only when explicitly provided (local-only)
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+    SPARK_ENV_CONF.extend(
+        [
+            f"spark.driverEnv.AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID}",
+            f"spark.driverEnv.AWS_SECRET_ACCESS_KEY={AWS_SECRET_ACCESS_KEY}",
+            f"spark.executorEnv.AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID}",
+            f"spark.executorEnv.AWS_SECRET_ACCESS_KEY={AWS_SECRET_ACCESS_KEY}",
+        ]
+    )
 
 _ENV_CONF = " ".join([f"--conf {c}" for c in SPARK_ENV_CONF])
 

@@ -1,10 +1,14 @@
 terraform {
-  required_version = ">= 1.0"
+  required_version = ">= 1.3"
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
     }
   }
 }
@@ -17,8 +21,9 @@ provider "aws" {
       var.tags,
       var.additional_tags,
       {
-        CreatedAt  = timestamp()
-        DeployedBy = "Terraform"
+        Environment = var.environment
+        Project     = var.project_name
+        Terraform   = "true"
       }
     )
   }
@@ -36,7 +41,7 @@ data "aws_availability_zones" "available" {
 
 data "aws_ami" "ubuntu" {
   most_recent = true
-  owners      = ["099720109477"]
+  owners      = ["099720109477"] # Canonical
 
   filter {
     name   = "name"
@@ -50,13 +55,13 @@ data "aws_ami" "ubuntu" {
 }
 
 # ==========================================================================
-# LOCALS
+# LOCALS + GENERATED SECRETS (if not provided)
 # ==========================================================================
 
 locals {
   account_id  = data.aws_caller_identity.current.account_id
-  region      = var.aws_region
   environment = var.environment
+  region      = var.aws_region
   project     = var.project_name
 
   name_prefix = "${local.project}-${local.environment}"
@@ -71,10 +76,48 @@ locals {
     },
     var.additional_tags
   )
+
+  airflow_base_url   = var.airflow_base_url != "" ? var.airflow_base_url : "https://${var.airflow_domain}"
+  jenkins_public_url = var.jenkins_public_url != "" ? var.jenkins_public_url : "https://${var.jenkins_domain}/"
+
+  rds_master_password = var.rds_master_password != "" ? var.rds_master_password : random_password.rds_master_password.result
+
+  airflow_admin_password       = var.airflow_admin_password != "" ? var.airflow_admin_password : random_password.airflow_admin_password.result
+  jenkins_admin_password       = var.jenkins_admin_password != "" ? var.jenkins_admin_password : random_password.jenkins_admin_password.result
+  airflow_webserver_secret_key = var.airflow_webserver_secret_key != "" ? var.airflow_webserver_secret_key : random_password.airflow_webserver_secret_key.result
+  airflow_fernet_key           = var.airflow_fernet_key != "" ? var.airflow_fernet_key : replace(replace(random_id.airflow_fernet.b64_std, "+", "-"), "/", "_")
+}
+
+resource "random_password" "rds_master_password" {
+  length           = 32
+  special          = true
+  override_special = "!$&*+,-.;="
+}
+
+resource "random_password" "airflow_admin_password" {
+  length           = 32
+  special          = true
+  override_special = "!$&*+,-.;="
+}
+
+resource "random_password" "jenkins_admin_password" {
+  length           = 32
+  special          = true
+  override_special = "!$&*+,-.;="
+}
+
+resource "random_password" "airflow_webserver_secret_key" {
+  length           = 64
+  special          = true
+  override_special = "!$&*+,-.;="
+}
+
+resource "random_id" "airflow_fernet" {
+  byte_length = 32
 }
 
 # ==========================================================================
-# NETWORKING
+# NETWORKING + SECURITY
 # ==========================================================================
 
 module "networking" {
@@ -89,10 +132,6 @@ module "networking" {
 
   tags = local.common_tags
 }
-
-# ==========================================================================
-# SECURITY GROUPS
-# ==========================================================================
 
 module "security" {
   source = "../../modules/security"
@@ -132,19 +171,22 @@ module "s3_data_lake" {
 module "rds_database" {
   source = "../../modules/rds"
 
-  identifier             = "${local.name_prefix}-postgres"
-  instance_class         = var.rds_instance_class
-  allocated_storage      = var.rds_allocated_storage
-  max_allocated_storage  = var.rds_max_allocated_storage
+  identifier              = "${local.name_prefix}-postgres"
+  instance_class          = var.rds_instance_class
+  allocated_storage       = var.rds_allocated_storage
+  max_allocated_storage   = var.rds_max_allocated_storage
   backup_retention_period = var.rds_backup_retention_days
-  multi_az               = var.rds_multi_az
-  engine_version         = var.rds_engine_version
-  database_name          = var.rds_database_name
-  master_username        = var.rds_master_username
-  master_password        = var.rds_master_password
-  force_ssl              = var.rds_force_ssl
+  multi_az                = var.rds_multi_az
+  engine_version          = var.rds_engine_version
+  database_name           = var.rds_database_name
+  master_username         = var.rds_master_username
+  master_password         = local.rds_master_password
+  force_ssl               = var.rds_force_ssl
 
-  subnet_ids            = module.networking.private_subnet_ids
+  publicly_accessible = var.rds_publicly_accessible
+  deletion_protection = var.rds_deletion_protection
+
+  subnet_ids             = module.networking.private_subnet_ids
   vpc_security_group_ids = [module.security.rds_sg_id]
 
   environment = local.environment
@@ -152,317 +194,137 @@ module "rds_database" {
 }
 
 # ==========================================================================
-# AMAZON MQ (RABBITMQ)
-# ==========================================================================
-
-module "rabbitmq" {
-  source = "../../modules/mq"
-
-  broker_name         = "${local.name_prefix}-rabbitmq"
-  engine_version      = var.mq_engine_version
-  instance_type       = var.mq_instance_type
-  deployment_mode     = var.mq_deployment_mode
-  publicly_accessible = false
-
-  subnet_ids         = var.mq_deployment_mode == "ACTIVE_STANDBY_MULTI_AZ" ? module.networking.private_subnet_ids : [module.networking.private_subnet_ids[0]]
-  security_group_ids = [module.security.mq_sg_id]
-
-  username = var.mq_username
-  password = var.mq_password
-
-  tags = local.common_tags
-}
-
-# ==========================================================================
-# CLOUDWATCH
-# ==========================================================================
-
-module "cloudwatch_logs" {
-  source = "../../modules/cloudwatch"
-
-  name_prefix              = local.name_prefix
-  log_retention_days       = var.cloudwatch_log_retention_days
-  alarm_notification_email = var.cloudwatch_alarm_email
-  enable_dashboards        = var.cloudwatch_enable_dashboards
-  aws_region               = var.aws_region
-  rds_instance_identifier  = "${local.name_prefix}-postgres"
-
-  tags = local.common_tags
-}
-
-# ==========================================================================
-# IAM
+# IAM (EC2 Instance Profile)
 # ==========================================================================
 
 module "iam_roles" {
   source = "../../modules/iam"
 
-  name_prefix     = local.name_prefix
-  s3_bucket_arn   = module.s3_data_lake.bucket_arn
-  rds_resource_id = module.rds_database.resource_id
-  account_id      = local.account_id
-  region          = local.region
-  emr_serverless_application_id   = var.emr_serverless_application_id
-  emr_serverless_execution_role_arn = var.emr_serverless_execution_role_arn
-
-  tags = local.common_tags
-}
-
-module "iam_jenkins" {
-  source = "../../modules/iam_jenkins"
-
-  name_prefix = local.name_prefix
-  tags        = local.common_tags
-}
-
-# ==========================================================================
-# ECR
-# ==========================================================================
-
-module "ecr" {
-  source = "../../modules/ecr"
-
-  repository_names = var.ecr_repository_names
-  scan_on_push     = true
+  name_prefix   = local.name_prefix
+  s3_bucket_arn = module.s3_data_lake.bucket_arn
+  account_id    = local.account_id
+  region        = local.region
 
   tags = local.common_tags
 }
 
 # ==========================================================================
-# EFS (Jenkins)
-# ==========================================================================
-
-module "jenkins_efs" {
-  source = "../../modules/efs"
-
-  name_prefix        = "${local.name_prefix}-jenkins"
-  subnet_ids         = module.networking.private_subnet_ids
-  security_group_ids = [module.security.efs_sg_id]
-
-  tags = local.common_tags
-}
-
-# ==========================================================================
-# USER DATA (Airflow + Jenkins)
-# ==========================================================================
-
-locals {
-  airflow_user_data_common = {
-    aws_region                   = var.aws_region
-    environment                  = var.environment
-    airflow_ecr_repo             = var.airflow_ecr_repo
-    airflow_image_tag            = var.airflow_image_tag
-    airflow_dags_repo            = var.airflow_dags_repo
-    airflow_dags_branch          = var.airflow_dags_branch
-    rds_endpoint                 = module.rds_database.endpoint
-    rds_db_name                  = var.rds_database_name
-    rds_username                 = var.rds_master_username
-    rds_password                 = var.rds_master_password
-    rabbitmq_endpoint            = element(module.rabbitmq.endpoints, 0)
-    rabbitmq_username            = var.mq_username
-    rabbitmq_password            = var.mq_password
-    airflow_fernet_key           = var.airflow_fernet_key
-    airflow_webserver_secret_key = var.airflow_webserver_secret_key
-    enable_secrets_manager       = var.enable_secrets_manager
-    secrets_rds_arn              = module.secrets.rds_secret_arn
-    secrets_mq_arn               = module.secrets.mq_secret_arn
-    secrets_airflow_arn          = module.secrets.airflow_secret_arn
-    s3_bucket_name               = var.s3_bucket_name
-    rds_force_ssl                = var.rds_force_ssl
-  }
-
-  airflow_scheduler_user_data = templatefile(
-    "${path.module}/../../user_data/airflow.sh",
-    merge(
-      local.airflow_user_data_common,
-      {
-        airflow_role          = "scheduler"
-        airflow_enable_flower = "true"
-      }
-    )
-  )
-
-  airflow_worker_user_data = templatefile(
-    "${path.module}/../../user_data/airflow.sh",
-    merge(
-      local.airflow_user_data_common,
-      {
-        airflow_role          = "worker"
-        airflow_enable_flower = "false"
-      }
-    )
-  )
-
-  jenkins_casc_b64           = base64encode(file("${path.module}/../../../ci/jenkins/jenkins.yaml"))
-  jenkins_plugins_b64        = base64encode(file("${path.module}/../../../ci/jenkins/plugins.txt"))
-  jenkins_admin_user_b64     = base64encode(var.jenkins_admin_user)
-  jenkins_admin_password_b64 = base64encode(var.jenkins_admin_password)
-  jenkins_controller_user_data = templatefile(
-    "${path.module}/../../user_data/jenkins_controller.sh",
-    {
-      efs_id                    = module.jenkins_efs.file_system_id
-      jenkins_casc_b64          = local.jenkins_casc_b64
-      jenkins_plugins_b64       = local.jenkins_plugins_b64
-      jenkins_admin_user_b64    = local.jenkins_admin_user_b64
-      jenkins_admin_password_b64 = local.jenkins_admin_password_b64
-    }
-  )
-  jenkins_agent_user_data = file("${path.module}/../../user_data/jenkins_agent.sh")
-}
-
-# ==========================================================================
-# COMPUTE: AIRFLOW + JENKINS
-# ==========================================================================
-
-module "airflow_schedulers" {
-  source = "../../modules/compute"
-
-  name           = "${local.name_prefix}-airflow-scheduler"
-  role_tag       = "airflow-scheduler"
-  instance_count = var.airflow_scheduler_count
-  instance_type  = var.ec2_instance_type
-  ami_id         = data.aws_ami.ubuntu.id
-
-  subnet_ids          = module.networking.private_subnet_ids
-  security_group_ids  = [module.security.airflow_sg_id]
-  associate_public_ip = false
-  key_name            = var.ec2_key_name
-  iam_instance_profile = module.iam_roles.instance_profile_name
-  user_data           = local.airflow_scheduler_user_data
-
-  tags = local.common_tags
-}
-
-module "airflow_workers" {
-  source = "../../modules/compute_asg"
-
-  name              = "${local.name_prefix}-airflow-worker"
-  role_tag          = "airflow-worker"
-  instance_type     = var.ec2_instance_type
-  ami_id            = data.aws_ami.ubuntu.id
-  subnet_ids        = module.networking.private_subnet_ids
-  security_group_ids = [module.security.airflow_sg_id]
-  iam_instance_profile = module.iam_roles.instance_profile_name
-  user_data         = local.airflow_worker_user_data
-
-  desired_capacity  = var.airflow_worker_desired
-  min_size          = var.airflow_worker_min
-  max_size          = var.airflow_worker_max
-
-  tags = local.common_tags
-}
-
-module "jenkins_controllers" {
-  source = "../../modules/compute"
-
-  name           = "${local.name_prefix}-jenkins-controller"
-  role_tag       = "jenkins-controller"
-  instance_count = var.jenkins_controller_count
-  instance_type  = var.ec2_instance_type
-  ami_id         = data.aws_ami.ubuntu.id
-
-  subnet_ids          = module.networking.private_subnet_ids
-  security_group_ids  = [module.security.jenkins_sg_id]
-  associate_public_ip = false
-  key_name            = var.ec2_key_name
-  iam_instance_profile = module.iam_jenkins.instance_profile_name
-  user_data           = local.jenkins_controller_user_data
-
-  tags = local.common_tags
-}
-
-module "jenkins_agents" {
-  source = "../../modules/compute"
-
-  name           = "${local.name_prefix}-jenkins-agent"
-  role_tag       = "jenkins-agent"
-  instance_count = var.jenkins_agent_count
-  instance_type  = var.ec2_instance_type
-  ami_id         = data.aws_ami.ubuntu.id
-
-  subnet_ids          = module.networking.private_subnet_ids
-  security_group_ids  = [module.security.jenkins_sg_id]
-  associate_public_ip = false
-  key_name            = var.ec2_key_name
-  iam_instance_profile = module.iam_jenkins.instance_profile_name
-  user_data           = local.jenkins_agent_user_data
-
-  tags = local.common_tags
-}
-
-# ==========================================================================
-# ALB
-# ==========================================================================
-
-module "jenkins_alb" {
-  source = "../../modules/alb"
-
-  name                = "${substr(local.name_prefix, 0, 16)}-jenkins-alb"
-  target_group_name   = "${substr(local.name_prefix, 0, 16)}-jenkins-tg"
-  vpc_id              = module.networking.vpc_id
-  subnet_ids          = module.networking.public_subnet_ids
-  security_group_ids  = [module.security.alb_sg_id]
-  target_instance_ids = module.jenkins_controllers.instance_ids
-  target_port         = 8080
-  listener_port       = 80
-  health_check_path   = "/login"
-  enable_https        = true
-  certificate_arn     = var.alb_certificate_arn
-  ssl_policy          = var.alb_ssl_policy
-
-  tags = local.common_tags
-}
-
-module "airflow_alb" {
-  source = "../../modules/alb"
-
-  name                = "${substr(local.name_prefix, 0, 16)}-airflow-alb"
-  target_group_name   = "${substr(local.name_prefix, 0, 16)}-airflow-tg"
-  vpc_id              = module.networking.vpc_id
-  subnet_ids          = module.networking.public_subnet_ids
-  security_group_ids  = [module.security.alb_sg_id]
-  target_instance_ids = module.airflow_schedulers.instance_ids
-  target_port         = 8080
-  listener_port       = 80
-  health_check_path   = "/health"
-  enable_https        = true
-  certificate_arn     = var.alb_certificate_arn
-  ssl_policy          = var.alb_ssl_policy
-
-  tags = local.common_tags
-}
-
-# ==========================================================================
-# GLUE CATALOG
-# ==========================================================================
-
-module "glue_catalog" {
-  source = "../../modules/glue"
-
-  database_name = var.glue_catalog_database_name
-  description   = "Lakehouse metadata catalog for ${var.project_name}"
-
-  tags = local.common_tags
-}
-
-# ==========================================================================
-# SECRETS MANAGER (OPTIONAL)
+# SECRETS MANAGER (RDS + Airflow + Jenkins)
 # ==========================================================================
 
 module "secrets" {
   source = "../../modules/secrets"
 
-  enable                     = var.enable_secrets_manager
-  name_prefix                = "lakehouse/${local.environment}"
-  rds_username               = var.rds_master_username
-  rds_password               = var.rds_master_password
-  rds_host                   = module.rds_database.address
-  rds_db_name                = var.rds_database_name
-  mq_username                = var.mq_username
-  mq_password                = var.mq_password
-  mq_endpoint                = element(module.rabbitmq.endpoints, 0)
-  airflow_fernet_key         = var.airflow_fernet_key
-  airflow_webserver_secret_key = var.airflow_webserver_secret_key
+  enable      = var.enable_secrets_manager
+  name_prefix = "lakehouse/${local.environment}"
+
+  rds_username = var.rds_master_username
+  rds_password = local.rds_master_password
+  rds_host     = module.rds_database.address
+  rds_db_name  = var.rds_database_name
+
+  airflow_fernet_key           = local.airflow_fernet_key
+  airflow_webserver_secret_key = local.airflow_webserver_secret_key
+  airflow_admin_user           = var.airflow_admin_user
+  airflow_admin_password       = local.airflow_admin_password
+  airflow_admin_email          = var.airflow_admin_email
+  airflow_base_url             = local.airflow_base_url
+
+  jenkins_admin_user     = var.jenkins_admin_user
+  jenkins_admin_password = local.jenkins_admin_password
+  jenkins_public_url     = local.jenkins_public_url
+  host_repo_path         = var.host_repo_path
+
+  tags = local.common_tags
+}
+
+# ==========================================================================
+# EC2 (Docker Compose runtime)
+# ==========================================================================
+
+locals {
+  app_user_data = templatefile(
+    "${path.module}/../../user_data/compose_bootstrap.sh",
+    {
+      aws_region = var.aws_region
+
+      repo_url       = var.repo_url
+      repo_branch    = var.repo_branch
+      host_repo_path = var.host_repo_path
+
+      secrets_rds_arn     = var.enable_secrets_manager ? module.secrets.rds_secret_arn : ""
+      secrets_airflow_arn = var.enable_secrets_manager ? module.secrets.airflow_secret_arn : ""
+      secrets_jenkins_arn = var.enable_secrets_manager ? module.secrets.jenkins_secret_arn : ""
+
+      s3_bucket_name = var.s3_bucket_name
+      airflow_domain = var.airflow_domain
+      jenkins_domain = var.jenkins_domain
+      rds_force_ssl  = var.rds_force_ssl
+    }
+  )
+}
+
+module "app_instance" {
+  source = "../../modules/compute"
+
+  name           = "${local.name_prefix}-app"
+  role_tag       = "lakehouse-app"
+  instance_count = 1
+  instance_type  = var.ec2_instance_type
+  ami_id         = data.aws_ami.ubuntu.id
+
+  subnet_ids           = module.networking.public_subnet_ids
+  security_group_ids   = [module.security.app_sg_id]
+  associate_public_ip  = true
+  key_name             = var.ec2_key_name
+  iam_instance_profile = module.iam_roles.instance_profile_name
+  user_data            = local.app_user_data
+
+  root_volume_size = var.ec2_root_volume_size
+
+  tags = local.common_tags
+}
+
+# ==========================================================================
+# ALB (host-based routing: airflow_domain + jenkins_domain)
+# ==========================================================================
+
+locals {
+  alb_name_prefix = substr(replace(local.name_prefix, "_", "-"), 0, 20)
+  tg_name_prefix  = substr(replace(local.name_prefix, "_", "-"), 0, 16)
+}
+
+module "alb" {
+  source = "../../modules/alb"
+
+  name               = "${local.alb_name_prefix}-alb"
+  vpc_id             = module.networking.vpc_id
+  subnet_ids         = module.networking.public_subnet_ids
+  security_group_ids = [module.security.alb_sg_id]
+
+  target_instance_ids = module.app_instance.instance_ids
+
+  listener_port   = 80
+  enable_https    = var.enable_https
+  certificate_arn = var.alb_certificate_arn
+  ssl_policy      = var.alb_ssl_policy
+
+  target_groups = {
+    airflow = {
+      name              = "${local.tg_name_prefix}-airflow-tg"
+      port              = 8080
+      health_check_path = "/health"
+      host_headers      = [var.airflow_domain]
+      priority          = 10
+    }
+    jenkins = {
+      name              = "${local.tg_name_prefix}-jenkins-tg"
+      port              = 9080
+      health_check_path = "/login"
+      host_headers      = [var.jenkins_domain]
+      priority          = 20
+    }
+  }
 
   tags = local.common_tags
 }

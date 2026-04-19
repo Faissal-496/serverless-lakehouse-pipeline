@@ -9,27 +9,27 @@ variable "name_prefix" {
 
 variable "vpc_cidr" {
   type        = string
-  description = "VPC CIDR block"
+  description = "CIDR block for the VPC"
 }
 
 variable "public_subnet_cidrs" {
   type        = list(string)
-  description = "Public subnet CIDR blocks"
+  description = "CIDR blocks for public subnets (one per AZ)"
 }
 
 variable "private_subnet_cidrs" {
   type        = list(string)
-  description = "Private subnet CIDR blocks"
+  description = "CIDR blocks for private subnets (one per AZ)"
 }
 
 variable "availability_zones" {
   type        = list(string)
-  description = "Availability zones to use"
+  description = "Availability Zones to use (must be at least as many as subnets)"
 }
 
 variable "enable_nat_gateway" {
   type        = bool
-  description = "Enable NAT gateway for private subnets"
+  description = "Whether to create a NAT gateway for private subnets"
   default     = false
 }
 

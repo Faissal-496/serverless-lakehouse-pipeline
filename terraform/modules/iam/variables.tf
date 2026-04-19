@@ -15,7 +15,7 @@ variable "s3_bucket_arn" {
 variable "rds_resource_id" {
   type        = string
   description = "RDS resource ID"
-  default     = ""  # Optional for advanced policies
+  default     = "" # Optional for advanced policies
 }
 
 variable "account_id" {

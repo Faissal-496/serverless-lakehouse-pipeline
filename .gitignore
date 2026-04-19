@@ -39,6 +39,7 @@ data/
 *.tfvars
 *.tfplan
 .terraform.lock.hcl
+backend.hcl
 
 # Secrets (CRITIQUE)
 les_credentials.txt

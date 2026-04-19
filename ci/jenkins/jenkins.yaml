@@ -7,8 +7,8 @@ jenkins:
     local:
       allowsSignup: false
       users:
-        - id: "${JENKINS_ADMIN_USER:-admin}"
-          password: "${JENKINS_ADMIN_PASSWORD:-admin}"
+        - id: "${JENKINS_ADMIN_USER}"
+          password: "${JENKINS_ADMIN_PASSWORD}"
 
   authorizationStrategy:
     loggedInUsersCanDoAnything:
@@ -27,7 +27,7 @@ jenkins:
               image: "jenkins/agent:latest-jdk17"
               mounts:
                 - "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
-                - "type=bind,source=/home/fisal_bel/projects/data_projects/v0.1.1/serverless-lakehouse-pipeline,target=/workspace,readonly"
+                - "type=bind,source=${HOST_REPO_PATH},target=/workspace,readonly"
               environmentsString: |
                 PYTHONPATH=/workspace/src
             remoteFs: "/home/jenkins/agent"
@@ -40,7 +40,7 @@ jenkins:
 
 unclassified:
   location:
-    url: "http://localhost:9080/"
+    url: "${JENKINS_PUBLIC_URL}"
     adminAddress: "devops@company.com"
 
 jobs:

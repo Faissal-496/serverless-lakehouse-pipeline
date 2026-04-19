@@ -1,89 +1,67 @@
-aws_region  = "eu-west-3"
-environment = "prod"
+aws_region   = "eu-west-3"
+environment  = "prod"
 project_name = "lakehouse-assurance"
-cost_center  = "insurance-analytics"
 
 vpc_cidr             = "10.0.0.0/16"
 public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
 private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
 
-enable_nat_gateway = true
-allowed_ingress_cidr_blocks = ["0.0.0.0/0"]
-ssh_cidr_blocks             = []
+# SECURITY: lock these down for prod
+allowed_ingress_cidr_blocks = ["0.0.0.0/0"]   # ALB ingress (ideally your office/VPN IPs)
+ssh_cidr_blocks             = ["X.X.X.X/32"]  # SSH to EC2 (strict /32)
 
-ec2_instance_type        = "t3.micro"
-ec2_key_name             = ""
-airflow_scheduler_count  = 2
-airflow_worker_desired   = 2
-airflow_worker_min       = 1
-airflow_worker_max       = 4
-jenkins_controller_count = 2
-jenkins_agent_count      = 4
+ec2_instance_type    = "t3.large"
+ec2_key_name         = "REPLACE_WITH_YOUR_KEYPAIR"
+ec2_root_volume_size = 80
 
-jenkins_admin_user     = "admin"
-jenkins_admin_password = "CHANGE_ME_STRONG_PASSWORD"
+repo_url       = "https://github.com/Faissal-496/serverless-lakehouse-pipeline.git"
+repo_branch    = "migration_prod"
+host_repo_path = "/opt/serverless-lakehouse-pipeline"
 
-mq_engine_version  = "3.11.20"
-mq_instance_type   = "mq.t3.micro"
-mq_deployment_mode = "ACTIVE_STANDBY_MULTI_AZ"
-mq_username        = "airflow"
-mq_password        = "CHANGE_ME_STRONG_PASSWORD"
+airflow_domain = "airflow.octaa.tech"
+jenkins_domain = "jenkins.octaa.tech"
 
-ecr_repository_names = [
-  "airflow-runtime",
-  "spark-runtime",
-  "jenkins-agent",
-  "lakehouse-base"
-]
+enable_https        = true
+alb_certificate_arn = "arn:aws:acm:eu-west-3:123456789012:certificate/REPLACE_ME"
 
-airflow_ecr_repo   = "airflow-runtime"
-airflow_image_tag  = "REPLACE_WITH_JENKINS_SHORT_SHA"
-airflow_dags_repo  = "https://github.com/Faissal-496/serverless-lakehouse-pipeline.git"
-airflow_dags_branch = "main"
-airflow_fernet_key = "CHANGE_ME_FERNET_KEY"
-airflow_webserver_secret_key = "CHANGE_ME_WEBSERVER_SECRET_KEY"
-
-s3_bucket_name = "lakehouse-assurance-moto-prod"
-s3_lifecycle_days_to_ia      = 30
-s3_lifecycle_days_to_glacier = 180
+s3_bucket_name               = "lakehouse-assurance-prod-REPLACE_ME_UNIQUE"
 s3_enable_versioning         = true
 s3_enable_encryption         = true
+s3_kms_key_enabled           = false
 s3_enable_access_logging     = true
+s3_lifecycle_days_to_ia      = 30
+s3_lifecycle_days_to_glacier = 180
 
-rds_instance_class = "db.t3.micro"
+rds_instance_class        = "db.t3.medium"
 rds_allocated_storage     = 20
 rds_max_allocated_storage = 200
 rds_backup_retention_days = 7
-rds_multi_az = true
-rds_force_ssl = true
-rds_engine_version = "15.3"
-rds_database_name = "lakehouse_prod"
-rds_master_username = "lakehouse_admin"
-rds_master_password = "CHANGE_ME_TO_STRONG_PASSWORD_32_CHARS_MIN"
-
-cloudwatch_log_retention_days = 90
-cloudwatch_alarm_email = "data-platform-alerts@company.com"
-cloudwatch_enable_dashboards = true
-
-alb_certificate_arn = "arn:aws:acm:eu-west-3:123456789012:certificate/REPLACE_ME"
+rds_multi_az              = true
+rds_force_ssl             = true
+rds_engine_version        = "15.3"
+rds_database_name         = "lakehouse_prod"
+rds_master_username       = "lakehouse_admin"
+# rds_master_password     = "SET_ME_OR_LEAVE_EMPTY_TO_AUTO_GENERATE"
+rds_publicly_accessible = false
+rds_deletion_protection = true
 
 enable_secrets_manager = true
 
-glue_catalog_database_name = "lakehouse"
+airflow_admin_user = "admin"
+# airflow_admin_password = "SET_ME_OR_LEAVE_EMPTY_TO_AUTO_GENERATE"
+airflow_admin_email = "admin@example.com"
+# airflow_fernet_key = "SET_ME_OR_LEAVE_EMPTY_TO_AUTO_GENERATE"
+# airflow_webserver_secret_key = "SET_ME_OR_LEAVE_EMPTY_TO_AUTO_GENERATE"
 
-emr_serverless_application_id = ""
-emr_serverless_execution_role_arn = ""
+jenkins_admin_user = "admin"
+# jenkins_admin_password = "SET_ME_OR_LEAVE_EMPTY_TO_AUTO_GENERATE"
 
 tags = {
-  Environment  = "production"
   ManagedBy    = "Terraform"
-  Project      = "lakehouse-assurance"
-  CostCenter   = "insurance-analytics"
-  Owner        = "data-platform-team"
-  Confidential  = "yes"
+  Owner        = "data-platform"
+  Confidential = "yes"
 }
 
 additional_tags = {
-  BackupRequired   = "true"
-  DisasterRecovery = "single-region"
+  CostCenter = "insurance-analytics"
 }

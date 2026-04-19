@@ -29,7 +29,7 @@ resource "aws_iam_role" "lakehouse_etl" {
         Effect = "Allow"
         Principal = {
           Service = [
-            "ec2.amazonaws.com",      # For EC2 instances
+            "ec2.amazonaws.com",       # For EC2 instances
             "ecs-tasks.amazonaws.com", # For ECS tasks
             "lambda.amazonaws.com"     # For future Lambda jobs
           ]
@@ -41,6 +41,7 @@ resource "aws_iam_role" "lakehouse_etl" {
         Principal = {
           AWS = "arn:aws:iam::${var.account_id}:root"
         }
+
         Condition = {
           StringEquals = {
             "sts:ExternalId" = "lakehouse-etl"

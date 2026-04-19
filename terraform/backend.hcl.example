@@ -1,5 +1,5 @@
-bucket         = "lakehouse-assurance-moto-tfstate"
-key            = "lakehouse/terraform.tfstate"
+bucket         = "REPLACE_ME_TF_STATE_BUCKET"
+key            = "envs/prod/terraform.tfstate"
 region         = "eu-west-3"
-dynamodb_table = "lakehouse-assurance-moto-tflocks"
+dynamodb_table = "REPLACE_ME_TF_LOCK_TABLE"
 encrypt        = true

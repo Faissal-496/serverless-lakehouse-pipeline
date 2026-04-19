@@ -21,6 +21,13 @@ resource "aws_instance" "this" {
   key_name                    = var.key_name != "" ? var.key_name : null
   iam_instance_profile        = var.iam_instance_profile != "" ? var.iam_instance_profile : null
   user_data                   = var.user_data != "" ? var.user_data : null
+  user_data_replace_on_change = true
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+  }
 
   root_block_device {
     volume_size = var.root_volume_size

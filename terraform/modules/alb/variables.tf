@@ -7,11 +7,6 @@ variable "name" {
   description = "ALB name"
 }
 
-variable "target_group_name" {
-  type        = string
-  description = "Target group name"
-}
-
 variable "vpc_id" {
   type        = string
   description = "VPC ID"
@@ -32,22 +27,21 @@ variable "target_instance_ids" {
   description = "EC2 instance IDs to attach"
 }
 
-variable "target_port" {
-  type        = number
-  description = "Target port"
-  default     = 8080
+variable "target_groups" {
+  type = map(object({
+    name              = string
+    port              = number
+    health_check_path = string
+    host_headers      = list(string)
+    priority          = number
+  }))
+  description = "Target groups + host-based routing rules"
 }
 
 variable "listener_port" {
   type        = number
   description = "Listener port"
   default     = 80
-}
-
-variable "health_check_path" {
-  type        = string
-  description = "Health check path"
-  default     = "/login"
 }
 
 variable "enable_https" {
