@@ -102,13 +102,39 @@ pipeline {
             steps {
                 sh """
                     cd ${WORKSPACE}
-                    echo "Building Python package   "
-                    python3 -m build --wheel --no-isolation 2>&1 || echo "Package build skipped (build deps missing)"
-                    if [ -d dist ]; then
-                        echo " Built artifacts   "
-                        ls -la dist/
-                    fi
-                    echo "Package Build complete   "
+                    echo "Building Python package"
+                    python3 -m build --wheel --no-isolation
+                    echo "Built artifacts:"
+                    ls -la dist/
+                """
+            }
+        }
+
+        stage('Upload Wheel to S3') {
+            when {
+                anyOf {
+                    changeset "src/**"
+                    changeset "pyproject.toml"
+                    changeset "setup.cfg"
+                }
+            }
+            environment {
+                AWS_DEFAULT_REGION = 'eu-west-3'
+                S3_BUCKET = 'lakehouse-assurance-prod-data'
+            }
+            steps {
+                sh """
+                    cd ${WORKSPACE}
+                    WHEEL_FILE=\$(ls dist/*.whl | head -1)
+                    echo "Uploading \$WHEEL_FILE to s3://${S3_BUCKET}/artifacts/"
+                    aws s3 cp "\$WHEEL_FILE" "s3://${S3_BUCKET}/artifacts/"
+                    aws s3 cp "\$WHEEL_FILE" "s3://${S3_BUCKET}/artifacts/lakehouse-latest.whl"
+
+                    echo "Syncing EMR job scripts to S3"
+                    aws s3 sync src/lakehouse/ "s3://${S3_BUCKET}/emr/scripts/lakehouse/" \
+                        --exclude "__pycache__/*" --exclude "*.pyc" --delete
+
+                    echo "Wheel uploaded to S3"
                 """
             }
         }
