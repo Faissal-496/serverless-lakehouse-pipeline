@@ -7,6 +7,7 @@ spark:
     # ===========================
     spark.sql.adaptive.enabled: "true"
     spark.sql.adaptive.coalescePartitions.enabled: "true"
+    spark.sql.adaptive.coalescePartitions.minPartitionSize: 1m
     spark.sql.adaptive.skewJoin.enabled: "true"
 
     # ===========================
@@ -22,14 +23,15 @@ spark:
     # ===========================
     spark.dynamicAllocation.enabled: "true"
     spark.dynamicAllocation.minExecutors: 1
-    spark.dynamicAllocation.maxExecutors: 6
-    spark.dynamicAllocation.initialExecutors: 2
+    spark.dynamicAllocation.maxExecutors: 4
+    spark.dynamicAllocation.initialExecutors: 1
+    spark.dynamicAllocation.executorIdleTimeout: 30s
 
     # ===========================
     # SHUFFLE & PARTITIONING
     # ===========================
-    spark.sql.shuffle.partitions: 16
-    spark.default.parallelism: 16
+    spark.sql.shuffle.partitions: 8
+    spark.default.parallelism: 8
 
     # ===========================
     # S3 / HADOOP
@@ -38,15 +40,18 @@ spark:
     spark.hadoop.fs.s3a.aws.credentials.provider: com.amazonaws.auth.DefaultAWSCredentialsProviderChain
     spark.hadoop.fs.s3a.endpoint.region: eu-west-3
     spark.hadoop.fs.s3a.fast.upload: "true"
-    spark.hadoop.fs.s3a.connection.maximum: 100
+    spark.hadoop.fs.s3a.fast.upload.buffer: disk
+    spark.hadoop.fs.s3a.connection.maximum: 50
     spark.hadoop.fs.s3a.connection.ssl.enabled: "true"
-    spark.hadoop.fs.s3a.multipart.size: 16m
+    spark.hadoop.fs.s3a.multipart.size: 64m
+    spark.hadoop.fs.s3a.readahead.range: 256k
+    spark.hadoop.fs.s3a.experimental.input.fadvise: sequential
 
     # ===========================
     # SERIALIZATION & COMPRESSION
     # ===========================
     spark.serializer: org.apache.spark.serializer.KryoSerializer
-    spark.kryoserializer.buffer.max: 256m
+    spark.kryoserializer.buffer.max: 128m
     spark.io.compression.codec: snappy
     spark.sql.parquet.compression.codec: snappy
 

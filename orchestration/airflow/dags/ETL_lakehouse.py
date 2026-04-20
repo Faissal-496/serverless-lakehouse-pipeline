@@ -9,7 +9,7 @@ For the standalone Spark cluster (Docker), use ``lakehouse_etl_complete.py``.
 
 Architecture contracts:
     - NO BashOperator -- uses SparkJobOperator (custom)
-    - Quality checks after each layer (row count, nulls, duplicates)
+    - Quality checks via boto3+PyArrow (no local Spark on Airflow worker)
     - Lineage tracking per layer transition
     - SNS alerting on failure
     - Idempotent writes (overwrite mode)
@@ -224,130 +224,91 @@ def _run_quality_check(
     **context: Any,
 ) -> None:
     """
-    Lightweight PySpark quality gate that runs in the Airflow worker.
+    Lightweight quality gate using boto3 + PyArrow (no Spark on worker).
 
-    Creates a ``local[1]`` SparkSession, reads the output parquet from S3,
-    and executes the quality rules defined in the dataset YAML.  If any
-    ``severity=error`` rule fails the task raises ``AirflowException``.
+    Reads parquet metadata and a sample from S3, validates row count,
+    null checks, and duplicate checks without starting a JVM.
     """
     import logging
 
-    from pyspark.sql import SparkSession
+    import pyarrow.parquet as pq
+    from pyarrow import fs as pa_fs
 
-    from lakehouse.quality.data_quality_checks import (
-        check_duplicates,
-        check_null_columns,
-    )
     from lakehouse.monitoring.logging import log_data_quality, log_quality_gate
-    from lakehouse.lineage.lineage import log_lineage
 
     log = logging.getLogger("airflow.task")
 
-    # --- Build a minimal local session for reads only ----------------------
-    builder = (
-        SparkSession.builder.master("local[1]")
-        .appName(f"dq_{layer}_{dataset_name}")
-        .config("spark.ui.enabled", "false")
-        .config("spark.sql.shuffle.partitions", "1")
-        .config("spark.driver.memory", "512m")
-        .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
-        .config("spark.hadoop.fs.s3a.endpoint.region", AWS_REGION)
-        .config("spark.hadoop.fs.s3a.fast.upload", "true")
-    )
-    aws_key = os.getenv("AWS_ACCESS_KEY_ID")
-    aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
-    if aws_key and aws_secret:
-        builder = builder.config("spark.hadoop.fs.s3a.access.key", aws_key).config(
-            "spark.hadoop.fs.s3a.secret.key", aws_secret
+    s3_prefix = f"{layer}/{dataset_name}"
+    s3_uri = f"s3://{s3_bucket}/{s3_prefix}"
+    log.info("DQ check (PyArrow) for %s ...", s3_uri)
+
+    s3_fs = pa_fs.S3FileSystem(region=AWS_REGION)
+    dataset = pq.ParquetDataset(f"{s3_bucket}/{s3_prefix}", filesystem=s3_fs)
+    table = dataset.read()
+
+    row_count = table.num_rows
+    log.info("  row_count = %d", row_count)
+    if row_count == 0:
+        from airflow.exceptions import AirflowException
+
+        raise AirflowException(f"{dataset_name} has 0 rows")
+
+    passed, failed = 0, 0
+    results: Dict[str, Any] = {"row_count": row_count}
+
+    columns = table.column_names
+
+    for rule in quality_rules:
+        rule_name = rule.get("rule", "")
+        severity = rule.get("severity", "warning")
+        cols = rule.get("columns", [])
+
+        if rule_name == "not_null" and cols:
+            existing = [c for c in cols if c in columns]
+            if existing:
+                null_count = sum(table.column(c).null_count for c in existing)
+                ok = null_count == 0
+                results[f"not_null({','.join(existing)})"] = {"null_count": null_count, "passed": ok}
+                if ok:
+                    passed += 1
+                elif severity == "error":
+                    failed += 1
+                else:
+                    passed += 1
+
+        elif rule_name == "no_duplicates" and cols:
+            existing = [c for c in cols if c in columns]
+            if existing:
+                sub = table.select(existing)
+                dup_count = row_count - sub.to_pandas().drop_duplicates().shape[0]
+                ok = dup_count == 0
+                results[f"no_duplicates({','.join(existing)})"] = {"dup_count": dup_count, "passed": ok}
+                if ok:
+                    passed += 1
+                elif severity == "error":
+                    failed += 1
+                else:
+                    passed += 1
+
+    # Schema check
+    results["schema_columns"] = len(columns)
+    passed += 1
+
+    log_data_quality(dataset_name, row_count, failed, results)
+    log_quality_gate(dataset_name, layer, passed, failed)
+
+    ti = context["ti"]
+    ti.xcom_push(key=f"dq_row_count_{dataset_name}", value=row_count)
+    ti.xcom_push(key=f"dq_passed_{dataset_name}", value=passed)
+    ti.xcom_push(key=f"dq_failed_{dataset_name}", value=failed)
+
+    if failed > 0:
+        from airflow.exceptions import AirflowException
+
+        raise AirflowException(
+            f"Quality gate FAILED for {layer}/{dataset_name}: "
+            f"{failed} error-level checks failed. Details: {results}"
         )
-    else:
-        builder = builder.config(
-            "spark.hadoop.fs.s3a.aws.credentials.provider",
-            "com.amazonaws.auth.DefaultAWSCredentialsProviderChain",
-        )
-
-    spark = builder.getOrCreate()
-
-    try:
-        data_path = f"s3a://{s3_bucket}/{layer}/{dataset_name}"
-        log.info("Reading %s for quality checks …", data_path)
-        df = spark.read.parquet(data_path)
-
-        # Check 1 — row count > 0
-        row_count = df.count()
-        log.info("  row_count = %d", row_count)
-        if row_count == 0:
-            raise RuntimeError(f"{dataset_name} has 0 rows")
-
-        passed, failed = 0, 0
-        results: Dict[str, Any] = {"row_count": row_count}
-
-        for rule in quality_rules:
-            rule_name = rule.get("rule", "")
-            severity = rule.get("severity", "warning")
-            cols = rule.get("columns", [])
-
-            if rule_name == "not_null" and cols:
-                # only check columns that exist
-                existing = [c for c in cols if c in df.columns]
-                if existing:
-                    null_count = check_null_columns(df, existing)
-                    ok = null_count == 0
-                    results[f"not_null({','.join(existing)})"] = {"null_count": null_count, "passed": ok}
-                    if ok:
-                        passed += 1
-                    elif severity == "error":
-                        failed += 1
-                    else:
-                        passed += 1  # warning-only
-
-            elif rule_name == "no_duplicates" and cols:
-                existing = [c for c in cols if c in df.columns]
-                if existing:
-                    dup_count = check_duplicates(df, existing)
-                    ok = dup_count == 0
-                    results[f"no_duplicates({','.join(existing)})"] = {"dup_count": dup_count, "passed": ok}
-                    if ok:
-                        passed += 1
-                    elif severity == "error":
-                        failed += 1
-                    else:
-                        passed += 1
-
-        # Schema check (always applied)
-        schema_cols = len(df.columns)
-        results["schema_columns"] = schema_cols
-        passed += 1
-
-        # Log results
-        log_data_quality(dataset_name, row_count, failed, results)
-        log_quality_gate(dataset_name, layer, passed, failed)
-
-        # Push to XCom
-        ti = context["ti"]
-        ti.xcom_push(key=f"dq_row_count_{dataset_name}", value=row_count)
-        ti.xcom_push(key=f"dq_passed_{dataset_name}", value=passed)
-        ti.xcom_push(key=f"dq_failed_{dataset_name}", value=failed)
-
-        # Lineage (quality check is also a lineage node)
-        log_lineage(
-            source=f"s3://{s3_bucket}/{layer}/{dataset_name}",
-            target=f"dq_check/{layer}/{dataset_name}",
-            rows=row_count,
-        )
-
-        if failed > 0:
-            from airflow.exceptions import AirflowException
-
-            raise AirflowException(
-                f"Quality gate FAILED for {layer}/{dataset_name}: "
-                f"{failed} error-level checks failed. Details: {results}"
-            )
-
-        log.info("Quality gate PASSED: %s/%s", layer, dataset_name)
-
-    finally:
-        spark.stop()
 
 
 # ============================================================================
@@ -441,9 +402,9 @@ with DAG(
                 bucket_name=S3_BUCKET,
                 bucket_key=raw_file,
                 aws_conn_id="aws_default",
-                poke_interval=60,
+                poke_interval=30,
                 timeout=600,
-                mode="reschedule",
+                deferrable=True,
                 retries=1,
                 dag=dag,
             )
@@ -479,7 +440,7 @@ with DAG(
                 task_group=tg_bronze,
                 retries=1,
                 retry_delay=timedelta(minutes=2),
-                execution_timeout=timedelta(minutes=15),
+                execution_timeout=timedelta(minutes=5),
             )
             bronze_dq_tasks.append(dq)
 
@@ -515,7 +476,7 @@ with DAG(
                 task_group=tg_silver,
                 retries=1,
                 retry_delay=timedelta(minutes=2),
-                execution_timeout=timedelta(minutes=15),
+                execution_timeout=timedelta(minutes=5),
             )
             silver_dq_tasks.append(dq)
 
@@ -554,7 +515,7 @@ with DAG(
                 task_group=tg_gold,
                 retries=1,
                 retry_delay=timedelta(minutes=2),
-                execution_timeout=timedelta(minutes=15),
+                execution_timeout=timedelta(minutes=5),
             )
             gold_dq_tasks.append(dq)
 

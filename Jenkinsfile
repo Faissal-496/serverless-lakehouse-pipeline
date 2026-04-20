@@ -67,12 +67,12 @@ pipeline {
             agent {
                 docker {
                     image 'python:3.11-slim'
-                    args '-u root:root'
+                    args '-u root:root -v pip-cache:/root/.cache/pip'
                 }
             }
             steps {
                 sh '''
-                    pip install --no-cache-dir autoflake==2.2.1 black==23.12.0 flake8==6.1.0
+                    pip install autoflake==2.2.1 black==23.12.0 flake8==6.1.0
 
                     echo "=== Autoflake: checking unused imports/variables ==="
                     autoflake --check --remove-all-unused-imports \
@@ -94,12 +94,12 @@ pipeline {
             agent {
                 docker {
                     image 'python:3.11-slim'
-                    args '-u root:root'
+                    args '-u root:root -v pip-cache:/root/.cache/pip'
                 }
             }
             steps {
                 sh '''
-                    pip install --no-cache-dir \
+                    pip install \
                         pytest==7.4.3 pyyaml==6.0.1 python-dotenv==1.0.0 \
                         tenacity==8.2.3 boto3 python-json-logger==2.0.7
                     PYTHONPATH=src pytest -q tests/
@@ -140,15 +140,21 @@ pipeline {
                         docker login --username AWS --password-stdin ${ECR_REGISTRY}
 
                     docker build \
+                        --cache-from ${ECR_REGISTRY}/${ECR_REPO_SPARK}:latest \
                         -f docker/spark/Dockerfile.base \
-                        -t ${ECR_REGISTRY}/${ECR_REPO_SPARK}:${IMAGE_TAG} .
+                        -t ${ECR_REGISTRY}/${ECR_REPO_SPARK}:${IMAGE_TAG} \
+                        -t ${ECR_REGISTRY}/${ECR_REPO_SPARK}:latest .
 
                     docker build \
+                        --cache-from ${ECR_REGISTRY}/${ECR_REPO_AIRFLOW}:latest \
                         -f docker/airflow/Dockerfile \
-                        -t ${ECR_REGISTRY}/${ECR_REPO_AIRFLOW}:${IMAGE_TAG} .
+                        -t ${ECR_REGISTRY}/${ECR_REPO_AIRFLOW}:${IMAGE_TAG} \
+                        -t ${ECR_REGISTRY}/${ECR_REPO_AIRFLOW}:latest .
 
                     docker push ${ECR_REGISTRY}/${ECR_REPO_SPARK}:${IMAGE_TAG}
+                    docker push ${ECR_REGISTRY}/${ECR_REPO_SPARK}:latest
                     docker push ${ECR_REGISTRY}/${ECR_REPO_AIRFLOW}:${IMAGE_TAG}
+                    docker push ${ECR_REGISTRY}/${ECR_REPO_AIRFLOW}:latest
                 '''
             }
         }

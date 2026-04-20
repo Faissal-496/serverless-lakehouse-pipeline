@@ -11,7 +11,7 @@ ENV PATH=$SPARK_HOME/bin:$PATH
 
 # Packages installed via Airflow's recommended mechanism (startup-time install).
 # Only include packages not already provided by Airflow 2.9.0 deps.
-ENV _PIP_ADDITIONAL_REQUIREMENTS="pyyaml==6.0.1 python-json-logger==2.0.7 tenacity==8.2.3 python-dotenv==1.0.0 apache-airflow-providers-amazon>=8.19.0"
+ENV _PIP_ADDITIONAL_REQUIREMENTS="pyyaml==6.0.1 python-json-logger==2.0.7 tenacity==8.2.3 python-dotenv==1.0.0 apache-airflow-providers-amazon>=8.19.0 pyarrow>=14.0.0"
 
 USER root
 

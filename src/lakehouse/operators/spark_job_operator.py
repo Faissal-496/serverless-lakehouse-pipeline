@@ -73,7 +73,7 @@ class SparkJobOperator(BaseOperator):
         spark_config: Optional[Dict[str, str]] = None,
         env_vars: Optional[Dict[str, str]] = None,
         execution_date_str: str = "{{ ds }}",
-        poll_interval: int = 15,
+        poll_interval: int = 30,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
