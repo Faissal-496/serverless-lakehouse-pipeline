@@ -140,3 +140,32 @@ def log_partition_processed(dataset_name: str, partition_date: str, row_count: i
         size_mb=round(size_bytes / (1024 * 1024), 2),
         event="partition_processed",
     )
+
+
+# ---------------------------------------------------------------------------
+# DAG-level helpers (used by ETL_lakehouse.py)
+# ---------------------------------------------------------------------------
+
+def log_dag_event(dag_id: str, event: str, **extra):
+    """Log a DAG-level lifecycle event (start / end / failure)."""
+    logger.info(
+        f"DAG {dag_id}: {event}",
+        dag_id=dag_id,
+        event=event,
+        **extra,
+    )
+
+
+def log_quality_gate(dataset: str, layer: str, checks_passed: int, checks_failed: int, **extra):
+    """Log a data-quality gate result."""
+    status = "PASS" if checks_failed == 0 else "FAIL"
+    logger.info(
+        f"DQ gate {status}: {layer}/{dataset}  passed={checks_passed} failed={checks_failed}",
+        dataset=dataset,
+        layer=layer,
+        checks_passed=checks_passed,
+        checks_failed=checks_failed,
+        status=status,
+        event="dq_gate",
+        **extra,
+    )
