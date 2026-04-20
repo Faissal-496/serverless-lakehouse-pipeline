@@ -54,9 +54,7 @@ RUN mkdir -p /opt/airflow/startup && \
     printf 'export CONFIG_DIR="${CONFIG_DIR:-/app/config}"\n' >> /opt/airflow/startup/configure-env.sh && \
     printf 'export DATA_BASE_PATH="${DATA_BASE_PATH:-/data}"\n' >> /opt/airflow/startup/configure-env.sh && \
     chmod +x /opt/airflow/startup/configure-env.sh
-
 USER airflow
-
 RUN echo 'source /opt/airflow/startup/configure-env.sh' >> ~/.bashrc
 
 # Install lakehouse Python package
