@@ -149,7 +149,7 @@ class SparkJobOperator(BaseOperator):
         for k, v in self.spark_config.items():
             parts.append(f"--conf {k}={v}")
         for k, v in self.env_vars.items():
-            parts.append(f"--conf spark.driverEnv.{k}={v}")
+            parts.append(f"--conf spark.emr-serverless.driverEnv.{k}={v}")
             parts.append(f"--conf spark.executorEnv.{k}={v}")
         if self.s3_wheel_path:
             parts.append(f"--py-files {self.s3_wheel_path}")
