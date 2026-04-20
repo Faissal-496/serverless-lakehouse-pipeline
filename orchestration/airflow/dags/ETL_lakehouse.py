@@ -69,6 +69,11 @@ S3_SCRIPTS_PREFIX: str = os.getenv(
 )
 S3_LOGS_PREFIX: str = "logs/emr-serverless"
 
+S3_VENV_PATH: str = os.getenv(
+    "S3_VENV_PATH",
+    f"s3://{S3_BUCKET}/emr/artifacts/pyspark_venv.tar.gz",
+)
+
 # Alerting
 SNS_TOPIC_ARN: str = os.getenv(
     "SNS_TOPIC_ARN",
@@ -191,6 +196,7 @@ def build_spark_task(
         s3_bucket=S3_BUCKET,
         s3_scripts_prefix=S3_SCRIPTS_PREFIX,
         s3_wheel_path=S3_WHEEL_PATH,
+        s3_venv_path=S3_VENV_PATH,
         s3_logs_prefix=S3_LOGS_PREFIX,
         aws_region=AWS_REGION,
         # Common

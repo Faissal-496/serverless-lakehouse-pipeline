@@ -267,12 +267,11 @@ resource "aws_iam_policy" "emr_serverless" {
           "emr-serverless:GetJobRun",
           "emr-serverless:CancelJobRun",
           "emr-serverless:ListJobRuns",
-          "emr-serverless:GetApplication"
+          "emr-serverless:GetApplication",
+          "emr-serverless:StartApplication",
+          "emr-serverless:StopApplication"
         ]
-        Resource = [
-          "arn:aws:emr-serverless:${var.region}:${var.account_id}:applications/${var.emr_serverless_application_id}",
-          "arn:aws:emr-serverless:${var.region}:${var.account_id}:applications/${var.emr_serverless_application_id}/jobruns/*"
-        ]
+        Resource = "arn:aws:emr-serverless:${var.region}:${var.account_id}:*"
       },
       {
         Sid    = "PassEmrExecutionRole"

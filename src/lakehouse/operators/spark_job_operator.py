@@ -62,6 +62,7 @@ class SparkJobOperator(BaseOperator):
         s3_bucket: str = "",
         s3_scripts_prefix: str = "emr/scripts/lakehouse/jobs",
         s3_wheel_path: str = "",
+        s3_venv_path: str = "",
         s3_logs_prefix: str = "logs/emr-serverless",
         aws_region: str = "eu-west-3",
         # --- Standalone ---
@@ -85,6 +86,7 @@ class SparkJobOperator(BaseOperator):
         self.s3_bucket = s3_bucket
         self.s3_scripts_prefix = s3_scripts_prefix
         self.s3_wheel_path = s3_wheel_path
+        self.s3_venv_path = s3_venv_path
         self.s3_logs_prefix = s3_logs_prefix
         self.aws_region = aws_region
         # Standalone
@@ -151,6 +153,11 @@ class SparkJobOperator(BaseOperator):
             parts.append(f"--conf spark.executorEnv.{k}={v}")
         if self.s3_wheel_path:
             parts.append(f"--py-files {self.s3_wheel_path}")
+        if self.s3_venv_path:
+            parts.append(f"--conf spark.archives={self.s3_venv_path}#environment")
+            parts.append("--conf spark.emr-serverless.driverEnv.PYSPARK_DRIVER_PYTHON=./environment/bin/python")
+            parts.append("--conf spark.emr-serverless.driverEnv.PYSPARK_PYTHON=./environment/bin/python")
+            parts.append("--conf spark.executorEnv.PYSPARK_PYTHON=./environment/bin/python")
 
         spark_params = " ".join(parts)
         run_name = f"lakehouse-{self.job_name}-{self.execution_date_str}"
