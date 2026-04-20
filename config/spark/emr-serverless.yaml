@@ -36,6 +36,7 @@ spark:
     # ===========================
     spark.hadoop.fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
     spark.hadoop.fs.s3a.aws.credentials.provider: com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+    spark.hadoop.fs.s3a.endpoint.region: eu-west-3
     spark.hadoop.fs.s3a.fast.upload: "true"
     spark.hadoop.fs.s3a.connection.maximum: 100
     spark.hadoop.fs.s3a.connection.ssl.enabled: "true"
