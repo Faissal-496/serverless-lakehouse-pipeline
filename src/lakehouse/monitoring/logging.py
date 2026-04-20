@@ -146,6 +146,7 @@ def log_partition_processed(dataset_name: str, partition_date: str, row_count: i
 # DAG-level helpers (used by ETL_lakehouse.py)
 # ---------------------------------------------------------------------------
 
+
 def log_dag_event(dag_id: str, event: str, **extra):
     """Log a DAG-level lifecycle event (start / end / failure)."""
     logger.info(
