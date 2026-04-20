@@ -251,6 +251,7 @@ def _run_quality_check(
         .config("spark.sql.shuffle.partitions", "1")
         .config("spark.driver.memory", "512m")
         .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+        .config("spark.hadoop.fs.s3a.endpoint.region", AWS_REGION)
         .config("spark.hadoop.fs.s3a.fast.upload", "true")
     )
     aws_key = os.getenv("AWS_ACCESS_KEY_ID")

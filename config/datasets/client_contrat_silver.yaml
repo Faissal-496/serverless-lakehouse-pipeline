@@ -1,7 +1,7 @@
 version: "1.0"
 namespace: "lakehouse.assurance"
 
-dataset: "client_contrat_silver"
+dataset: "Client_contrat_silver"
 description: "Silver layer - Consolidated customer-contract view with transformations"
 
 layer: "silver"
