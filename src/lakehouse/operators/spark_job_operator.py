@@ -132,6 +132,11 @@ class SparkJobOperator(BaseOperator):
     def _run_emr_serverless(self, context: Dict[str, Any]) -> str:
         import boto3
 
+        if not self.emr_app_id:
+            raise AirflowException("EMR_APP_ID is not set. Add it to .env.docker and restart Airflow.")
+        if not self.emr_execution_role_arn:
+            raise AirflowException("EMR_EXECUTION_ROLE_ARN is not set. Add it to .env.docker and restart Airflow.")
+
         client = boto3.client("emr-serverless", region_name=self.aws_region)
 
         script_name = Path(self.job_script).name

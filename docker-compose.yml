@@ -32,6 +32,11 @@ x-airflow-common: &airflow-common
     AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
     S3_BUCKET: ${S3_BUCKET}
 
+    # --- EMR Serverless ---
+    EMR_APP_ID: ${EMR_APP_ID:-}
+    EMR_EXECUTION_ROLE_ARN: ${EMR_EXECUTION_ROLE_ARN:-}
+    SNS_TOPIC_ARN: ${SNS_TOPIC_ARN:-}
+
     # --- Remote Logging to S3 ---
     AIRFLOW__LOGGING__REMOTE_LOGGING: "true"
     AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID: "aws_default"

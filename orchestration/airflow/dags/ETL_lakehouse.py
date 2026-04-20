@@ -1,21 +1,29 @@
 """
-ETL_lakehouse — Production Lakehouse Pipeline DAG
-===================================================
-Pipeline : RAW (S3 sensor) → Bronze → Silver → Gold
-Modes    : EMR Serverless (default) | Spark Standalone
+ETL_lakehouse -- EMR Serverless Lakehouse Pipeline DAG
+======================================================
+Pipeline : RAW (S3 sensor) -> Bronze -> Silver -> Gold
+Runtime  : EMR Serverless (exclusively)
 Data-driven : dataset definitions loaded from config/datasets/*.yaml
 
+For the standalone Spark cluster (Docker), use ``lakehouse_etl_complete.py``.
+
 Architecture contracts:
-    - NO BashOperator — uses SparkJobOperator (custom)
+    - NO BashOperator -- uses SparkJobOperator (custom)
     - Quality checks after each layer (row count, nulls, duplicates)
     - Lineage tracking per layer transition
     - SNS alerting on failure
     - Idempotent writes (overwrite mode)
+
+Required environment variables (must be set in .env.docker):
+    EMR_APP_ID               - EMR Serverless application ID
+    EMR_EXECUTION_ROLE_ARN   - IAM role ARN for EMR execution
+    S3_BUCKET                - Data lake S3 bucket name
 """
 
 from __future__ import annotations
 
 import os
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -30,18 +38,27 @@ from airflow.utils.task_group import TaskGroup
 
 from lakehouse.operators.spark_job_operator import SparkJobOperator
 
+_dag_log = logging.getLogger(__name__)
+
 # ============================================================================
-# Global configuration — single source of truth
+# Global configuration -- single source of truth (EMR Serverless only)
 # ============================================================================
 
-SPARK_MODE: str = os.getenv("SPARK_MODE", "emr-serverless")
 S3_BUCKET: str = os.getenv("S3_BUCKET", "lakehouse-assurance-prod-data")
 AWS_REGION: str = os.getenv("AWS_DEFAULT_REGION", "eu-west-3")
 APP_ENV: str = os.getenv("APP_ENV", "prod")
 
-# EMR Serverless
+# EMR Serverless (mandatory)
 EMR_APP_ID: str = os.getenv("EMR_APP_ID", "")
 EMR_EXECUTION_ROLE_ARN: str = os.getenv("EMR_EXECUTION_ROLE_ARN", "")
+
+if not EMR_APP_ID or not EMR_EXECUTION_ROLE_ARN:
+    _dag_log.warning(
+        "ETL_lakehouse: EMR_APP_ID or EMR_EXECUTION_ROLE_ARN not set. "
+        "DAG will parse but tasks will fail at runtime. "
+        "Set these in .env.docker and restart Airflow containers."
+    )
+
 S3_WHEEL_PATH: str = os.getenv(
     "S3_WHEEL_PATH",
     f"s3://{S3_BUCKET}/artifacts/lakehouse-latest.whl",
@@ -51,13 +68,6 @@ S3_SCRIPTS_PREFIX: str = os.getenv(
     "emr/scripts/lakehouse/jobs",
 )
 S3_LOGS_PREFIX: str = "logs/emr-serverless"
-
-# Standalone
-SPARK_MASTER: str = os.getenv("SPARK_MASTER_URL", "spark://spark-master:7077")
-SPARK_CONF_FILE: str = os.getenv(
-    "SPARK_PROPERTIES_FILE",
-    "/app/config/spark/spark-defaults-local.conf",
-)
 
 # Alerting
 SNS_TOPIC_ARN: str = os.getenv(
@@ -71,21 +81,21 @@ SILVER_DATASET = Dataset(f"s3://{S3_BUCKET}/silver/")
 GOLD_DATASET = Dataset(f"s3://{S3_BUCKET}/gold/")
 
 # ============================================================================
-# Job script mapping — layer → PySpark entry-point
+# Job script mapping -- layer -> S3 entry-point for EMR Serverless
 # ============================================================================
 
 JOB_SCRIPTS: Dict[str, Dict[str, str]] = {
     "bronze": {
         "job_name": "bronze_ingest",
-        "script": "/app/src/lakehouse/jobs/bronze_ingest_job.py",
+        "script": "bronze_ingest_job.py",
     },
     "silver": {
         "job_name": "silver_transform",
-        "script": "/app/src/lakehouse/jobs/silver_transform_job.py",
+        "script": "silver_transform_job.py",
     },
     "gold": {
         "job_name": "gold_transform",
-        "script": "/app/src/lakehouse/jobs/gold_transform_job.py",
+        "script": "gold_transform_job.py",
     },
 }
 
@@ -118,16 +128,12 @@ def load_dataset_configs() -> Dict[str, Dict[str, Any]]:
     return configs
 
 
-def load_spark_config(mode: str) -> Dict[str, str]:
+def load_spark_config() -> Dict[str, str]:
     """
-    Load the Spark ``--conf`` map from the appropriate YAML profile.
-
-    - ``emr-serverless`` → ``config/spark/emr-serverless.yaml``
-    - ``standalone``     → ``config/spark/standalone-local.yaml``
+    Load the Spark ``--conf`` map from the EMR Serverless YAML profile.
     """
     config_dir = Path(os.getenv("CONFIG_DIR", "/app/config"))
-    filename = "emr-serverless.yaml" if mode == "emr-serverless" else "standalone-local.yaml"
-    config_file = config_dir / "spark" / filename
+    config_file = config_dir / "spark" / "emr-serverless.yaml"
 
     if config_file.exists():
         with open(config_file) as fh:
@@ -171,13 +177,14 @@ def build_spark_task(
     retries: int = 2,
 ) -> SparkJobOperator:
     """
-    Factory that creates a fully-configured ``SparkJobOperator``.
+    Factory that creates a fully-configured ``SparkJobOperator``
+    for EMR Serverless execution.
     """
     return SparkJobOperator(
         task_id=f"run_{job_name}",
         job_name=job_name,
         job_script=job_script,
-        spark_mode=SPARK_MODE,
+        spark_mode="emr-serverless",
         # EMR
         emr_app_id=EMR_APP_ID,
         emr_execution_role_arn=EMR_EXECUTION_ROLE_ARN,
@@ -186,10 +193,6 @@ def build_spark_task(
         s3_wheel_path=S3_WHEEL_PATH,
         s3_logs_prefix=S3_LOGS_PREFIX,
         aws_region=AWS_REGION,
-        # Standalone
-        spark_master=SPARK_MASTER,
-        deploy_mode="client",
-        properties_file=SPARK_CONF_FILE if SPARK_MODE == "standalone" else "",
         # Common
         spark_config=spark_config,
         env_vars=env_vars,
@@ -381,7 +384,7 @@ def _on_failure_callback(context: Dict[str, Any]) -> None:
 # ============================================================================
 
 DATASET_CONFIGS = load_dataset_configs()
-SPARK_CONFIG = load_spark_config(SPARK_MODE)
+SPARK_CONFIG = load_spark_config()
 SPARK_ENV_VARS = _build_spark_env_vars()
 
 # Classify datasets by layer
@@ -409,7 +412,7 @@ with DAG(
     start_date=datetime(2026, 1, 1),
     catchup=False,
     max_active_runs=1,
-    tags=["lakehouse", "etl", "production", SPARK_MODE],
+    tags=["lakehouse", "etl", "production", "emr-serverless"],
     default_args=default_args,
     doc_md=__doc__,
 ) as dag:

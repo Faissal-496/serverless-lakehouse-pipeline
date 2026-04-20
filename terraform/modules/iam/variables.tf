@@ -40,6 +40,12 @@ variable "emr_serverless_execution_role_arn" {
   default     = ""
 }
 
+variable "sns_topic_arn" {
+  type        = string
+  description = "SNS topic ARN for ETL alerts"
+  default     = ""
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags to apply"

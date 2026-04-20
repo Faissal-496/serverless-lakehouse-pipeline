@@ -205,6 +205,9 @@ module "iam_roles" {
   account_id    = local.account_id
   region        = local.region
 
+  emr_serverless_application_id     = var.emr_serverless_application_id
+  emr_serverless_execution_role_arn = var.emr_serverless_execution_role_arn
+
   tags = local.common_tags
 }
 

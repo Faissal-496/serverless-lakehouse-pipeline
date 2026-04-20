@@ -307,3 +307,19 @@ variable "jenkins_public_url" {
   description = "Jenkins public URL (leave empty to derive from jenkins_domain)"
   default     = ""
 }
+
+# ============================================================================
+# EMR SERVERLESS
+# ============================================================================
+
+variable "emr_serverless_application_id" {
+  type        = string
+  description = "EMR Serverless application ID"
+  default     = ""
+}
+
+variable "emr_serverless_execution_role_arn" {
+  type        = string
+  description = "EMR Serverless execution role ARN"
+  default     = ""
+}

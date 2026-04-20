@@ -296,6 +296,37 @@ resource "aws_iam_role_policy_attachment" "emr_serverless" {
 }
 
 # ============================================================================
+# SNS ALERTING ACCESS
+# ============================================================================
+
+resource "aws_iam_policy" "sns_alerts" {
+  count = var.sns_topic_arn != "" ? 1 : 0
+
+  name = "${var.name_prefix}-sns-alerts-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "SNSPublishAlerts"
+        Effect   = "Allow"
+        Action   = "sns:Publish"
+        Resource = var.sns_topic_arn
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "sns_alerts" {
+  count = var.sns_topic_arn != "" ? 1 : 0
+
+  role       = aws_iam_role.lakehouse_etl.name
+  policy_arn = aws_iam_policy.sns_alerts[0].arn
+}
+
+# ============================================================================
 # INSTANCE PROFILE (for EC2 instances)
 # ============================================================================
 
