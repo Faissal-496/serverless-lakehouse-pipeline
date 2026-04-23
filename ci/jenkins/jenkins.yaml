@@ -37,6 +37,7 @@ jenkins:
               attach:
                 user: "root"
             instanceCapStr: "4"
+            pullStrategy: PULL_NEVER
             retentionStrategy:
               idleMinutes: 5
 
