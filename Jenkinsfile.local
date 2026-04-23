@@ -1,4 +1,5 @@
 // Lakehouse CI/CD Pipeline
+// in jenkins.yaml thaks to: cpsscm ; Continuation Passing Style Source Code Management (lightweight(true): clone just Jenkinsfile, not whole repo) is used to load this Jenkinsfile.local for branches that require it (dev, migration_prod) while main branch uses Jenkinsfile for full pipeline with Terraform deployment.
 // Flow: Lint → DAG Validation → Unit Tests → Package Build → Deploy
 // Branches: dev, migration_prod
 
@@ -18,13 +19,13 @@ pipeline {
         PYTHONPATH = "${WORKSPACE}/src"
         PACKAGE_NAME = 'lakehouse'
     }
-
+// 
     stages {
         stage('Branch Filter') {
             steps {
                 script {
-                    def branch = env.GIT_BRANCH?.replaceAll('origin/', '') ?: ''
-                    def allowed = ['dev', 'migration_prod', 'main']
+                    def branch = env.GIT_BRANCH?.replaceAll('origin/', '') ?: '' // branch Git: Handle case where GIT_BRANCH might be null
+                    def allowed = ['dev', 'migration_prod', 'main'] 
                     if (!allowed.contains(branch)) {
                         echo "Skipping build: branch '${branch}' is not in ${allowed}"
                         currentBuild.result = 'NOT_BUILT'
@@ -35,7 +36,7 @@ pipeline {
             }
         }
 
-        stage('Setup') {
+        stage('Setup') { // Verify toolchain is available in the Docker image of jenkins-agent like python3, pytest, black, etc. This is a sanity check to catch misconfigurations early
             steps {
                 sh '''
                     echo "Verifying pre-installed toolchain"
@@ -47,10 +48,10 @@ pipeline {
             }
         }
 
-        stage('Quality Gates') {
-            parallel {
+        stage('Quality Gates') { // Run linters in parallel for faster feedback since they are independent checks
+            parallel { // the 3 jobs in parallel
                 stage('Autoflake') {
-                    steps {
+                    steps { // inused imports and variables
                         sh """
                             python3 -m autoflake \\
                                 --check \\
@@ -61,12 +62,12 @@ pipeline {
                         """
                     }
                 }
-                stage('Black') {
+                stage('Black') { // format check 
                     steps {
                         sh "python3 -m black --check --diff ${WORKSPACE}/src ${WORKSPACE}/tests"
                     }
                 }
-                stage('Flake8') {
+                stage('Flake8') { // code quality check int strict mode with max line length 120 and excluding __pycache__
                     steps {
                         sh "python3 -m flake8 ${WORKSPACE}/src ${WORKSPACE}/tests --max-line-length=120 --exclude=__pycache__"
                     }
@@ -74,7 +75,7 @@ pipeline {
             }
         }
 
-        stage('DAG Validation') {
+        stage('DAG Validation') { // This is a critical step to catch syntax errors in Airflow DAGs before they cause runtime failures. It uses a custom Python script that attempts to parse all DAG files and report any issues
             steps {
                 sh """
                     echo "Validating Airflow DAG syntax"
@@ -84,21 +85,21 @@ pipeline {
             }
         }
 
-        stage('Unit Tests') {
+        stage('Unit Tests') { // Run all unit tests using pytest and generate a JUnit XML report for Jenkins to display test results in the UI. This provides visibility into test failures and helps maintain code quality it's valdiating the core logic of the lakehouse package and ensures that any changes don't break existing functionality. The test results are published in Jenkins for easy access and analysis.
             steps {
-                sh """
+                sh """ 
                     cd ${WORKSPACE}
                     PYTHONPATH=src python3 -m pytest tests/ -v --tb=short --junitxml=test-results.xml
-                """
+                """ // the -v flag provides verbose output, and --tb=short gives a concise traceback on test failures, making it easier to identify issues in the Jenkins logs. The --junitxml option generates an XML report that Jenkins can parse to display test results in the UI.
             }
-            post {
+            post { // publish test results in Jenkins UI regardless of test success or failure to ensure visibility into test outcomes
                 always {
                     junit allowEmptyResults: true, testResults: 'test-results.xml'
                 }
             }
         }
 
-        stage('Package Build') {
+        stage('Package Build') { // Build the Python package using the standard build module, which creates a wheel file in the dist/ directory. This step ensures that the package can be built successfully and that all necessary files are included. The resulting wheel file is then uploaded to S3 for distribution and use in EMR jobs.
             steps {
                 sh """
                     cd ${WORKSPACE}
@@ -110,7 +111,7 @@ pipeline {
             }
         }
 
-        stage('Upload Wheel to S3') {
+        stage('Upload Wheel to S3') { // This stage uploads the built wheel file to an S3 bucket, making it available for use in EMR jobs and other deployments. It also syncs the EMR job scripts to S3 to ensure that the latest versions are available for execution. The use of environment variables for the S3 bucket name allows for flexibility across different environments (e.g., dev, staging, prod).
             when {
                 anyOf {
                     changeset "src/**"
@@ -120,7 +121,7 @@ pipeline {
             }
             environment {
                 AWS_DEFAULT_REGION = 'eu-west-3'
-                S3_BUCKET = 'lakehouse-assurance-prod-data'
+                S3_BUCKET = 'lakehouse-assurance-migration-data-736047917658'
             }
             steps {
                 sh """
@@ -130,7 +131,7 @@ pipeline {
                     aws s3 cp "\$WHEEL_FILE" "s3://${S3_BUCKET}/artifacts/"
                     aws s3 cp "\$WHEEL_FILE" "s3://${S3_BUCKET}/artifacts/lakehouse-latest.whl"
 
-                    echo "Syncing EMR job scripts to S3"
+                    echo "Syncing EMR job scripts to S3" 
                     aws s3 sync src/lakehouse/ "s3://${S3_BUCKET}/emr/scripts/lakehouse/" \
                         --exclude "__pycache__/*" --exclude "*.pyc" --delete
 
@@ -140,7 +141,7 @@ pipeline {
         }
 
         stage('Docker Build & Push to ECR') {
-            when {
+            when { 
                 anyOf {
                     changeset "docker/**"
                     changeset "src/**"
@@ -149,7 +150,7 @@ pipeline {
                 }
             }
             environment {
-                ECR_REGISTRY = '387642999442.dkr.ecr.eu-west-3.amazonaws.com'
+                ECR_REGISTRY = '736047917658.dkr.ecr.eu-west-3.amazonaws.com'
                 AWS_DEFAULT_REGION = 'eu-west-3'
             }
             steps {
