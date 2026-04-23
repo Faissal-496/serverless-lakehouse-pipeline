@@ -130,6 +130,16 @@ SNS_TOPIC_ARN=$SNS_TOPIC_ARN
 EOF
 chmod 600 .env.docker
 
+log "Adding 2GB swap to prevent OOM on small instances..."
+if [ ! -f /swapfile ]; then
+  fallocate -l 2G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  log "Swap enabled: $(free -h | grep Swap)"
+fi
+
 log "Building Spark base image..."
 docker build -t lakehouse-spark-base:latest -f docker/spark/Dockerfile.base .
 

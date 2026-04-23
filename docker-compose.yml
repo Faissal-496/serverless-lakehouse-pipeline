@@ -128,6 +128,7 @@ services:
     ports:
       - "7077:7077"
       - "8084:8080"
+    mem_limit: 256m
     networks:
       - lakehouse_network
 
@@ -142,7 +143,8 @@ services:
       - .env.docker
     environment:
       SPARK_WORKER_CORES: 1
-      SPARK_WORKER_MEMORY: 2g
+      SPARK_WORKER_MEMORY: 512m
+    mem_limit: 512m
     networks:
       - lakehouse_network
 
@@ -157,7 +159,8 @@ services:
       - .env.docker
     environment:
       SPARK_WORKER_CORES: 1
-      SPARK_WORKER_MEMORY: 2g
+      SPARK_WORKER_MEMORY: 512m
+    mem_limit: 512m
     networks:
       - lakehouse_network
 
