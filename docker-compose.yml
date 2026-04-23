@@ -14,6 +14,10 @@ x-airflow-common: &airflow-common
     # --- Celery ---
     AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
     AIRFLOW__CELERY__RESULT_BACKEND: db+${AIRFLOW_DB_CONN}
+    AIRFLOW__CELERY__WORKER_CONCURRENCY: "1"
+
+    # --- Webserver (reduce gunicorn workers for t3.micro) ---
+    AIRFLOW__WEBSERVER__WORKERS: "2"
 
     # --- DATABASE (RDS !!!) ---
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW_DB_CONN}
@@ -194,7 +198,7 @@ services:
 
   airflow-worker:
     <<: *airflow-common
-    mem_limit: 512m
+    mem_limit: 384m
     restart: on-failure
     depends_on:
       - airflow-init
