@@ -33,6 +33,7 @@ x-airflow-common: &airflow-common
     S3_BUCKET: ${S3_BUCKET}
 
     # --- EMR Serverless ---
+    SPARK_MODE: ${SPARK_MODE:-standalone}
     EMR_APP_ID: ${EMR_APP_ID:-}
     EMR_EXECUTION_ROLE_ARN: ${EMR_EXECUTION_ROLE_ARN:-}
     SNS_TOPIC_ARN: ${SNS_TOPIC_ARN:-}
