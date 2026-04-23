@@ -265,10 +265,10 @@ locals {
       jenkins_domain = var.jenkins_domain
       rds_force_ssl  = var.rds_force_ssl
 
-      emr_app_id             = var.emr_serverless_application_id
+      emr_app_id            = var.emr_serverless_application_id
       emr_execution_role_arn = var.emr_serverless_execution_role_arn
-      sns_topic_arn          = try(var.sns_topic_arn, "")
-      spark_mode             = var.emr_serverless_application_id != "" ? "emr-serverless" : "standalone"
+      sns_topic_arn         = var.sns_topic_arn
+      spark_mode            = var.emr_serverless_application_id != "" ? "emr-serverless" : "standalone"
     }
   )
 }

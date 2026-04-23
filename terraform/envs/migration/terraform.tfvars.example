@@ -1,0 +1,63 @@
+aws_region   = "eu-west-3"
+environment  = "migration"
+project_name = "lakehouse-assurance"
+
+vpc_cidr             = "10.0.0.0/16"
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
+
+# SECURITY: lock these down
+allowed_ingress_cidr_blocks = ["0.0.0.0/0"]
+ssh_cidr_blocks             = ["X.X.X.X/32"]
+
+ec2_instance_type    = "t3.large"
+ec2_key_name         = "REPLACE_WITH_YOUR_KEYPAIR"
+ec2_root_volume_size = 80
+
+repo_url       = "https://github.com/Faissal-496/serverless-lakehouse-pipeline.git"
+repo_branch    = "migration_prod"
+host_repo_path = "/opt/serverless-lakehouse-pipeline"
+
+airflow_domain = "airflowm.octaa.tech"
+jenkins_domain = "jenkinsm.octaa.tech"
+
+enable_https        = true
+# IMPORTANT: Provide the ACM certificate ARN specific to your NEW AWS account
+alb_certificate_arn = "arn:aws:acm:REGION:ACCOUNT_ID:certificate/NEW_CERTIFICATE_ID"
+
+s3_bucket_name               = "lakehouse-assurance-migration-UNIQUE_ID"
+s3_enable_versioning         = true
+s3_enable_encryption         = true
+s3_kms_key_enabled           = false
+s3_enable_access_logging     = true
+s3_lifecycle_days_to_ia      = 30
+s3_lifecycle_days_to_glacier = 180
+
+rds_instance_class        = "db.t3.medium"
+rds_allocated_storage     = 20
+rds_max_allocated_storage = 200
+rds_backup_retention_days = 7
+rds_multi_az              = false
+rds_force_ssl             = true
+rds_engine_version        = "15.3"
+rds_database_name         = "lakehouse_migration"
+rds_master_username       = "lakehouse_admin"
+rds_publicly_accessible = false
+rds_deletion_protection = false
+
+enable_secrets_manager = true
+
+airflow_admin_user = "admin"
+airflow_admin_email = "admin@example.com"
+
+jenkins_admin_user = "admin"
+
+tags = {
+  ManagedBy    = "Terraform"
+  Owner        = "data-platform"
+  Environment  = "migration"
+}
+
+additional_tags = {
+  CostCenter = "insurance-analytics-migration"
+}
