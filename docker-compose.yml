@@ -29,7 +29,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
 
     # --- Spark ---
-    SPARK_MASTER_URL: spark://spark-master:7077
+    SPARK_MASTER_URL: ${SPARK_MASTER_URL:-spark://spark-master:7077}
     SPARK_HOME: /opt/spark
 
     # --- AWS ---
