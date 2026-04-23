@@ -16,7 +16,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CELERY__RESULT_BACKEND: db+${AIRFLOW_DB_CONN}
     AIRFLOW__CELERY__WORKER_CONCURRENCY: "1"
 
-    # --- Webserver (reduce gunicorn workers for t3.micro) ---
+    # --- Webserver (2 gunicorn workers; sufficient for t3.small) ---
     AIRFLOW__WEBSERVER__WORKERS: "2"
 
     # --- DATABASE (RDS !!!) ---
@@ -198,7 +198,7 @@ services:
 
   airflow-worker:
     <<: *airflow-common
-    mem_limit: 384m
+    mem_limit: 768m
     restart: on-failure
     depends_on:
       - airflow-init
