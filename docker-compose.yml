@@ -169,12 +169,14 @@ services:
   # =========================
   airflow-init:
     <<: *airflow-common
+    mem_limit: 512m
     command: >
       bash -c "airflow db init &&
       (airflow users create --username ${AIRFLOW_ADMIN_USER} --password ${AIRFLOW_ADMIN_PASSWORD} --firstname Admin --lastname User --role Admin --email ${AIRFLOW_ADMIN_EMAIL} || echo 'Airflow admin user already exists')"
 
   airflow-webserver:
     <<: *airflow-common
+    mem_limit: 512m
     restart: on-failure
     ports:
       - "8080:8080"
@@ -184,6 +186,7 @@ services:
 
   airflow-scheduler:
     <<: *airflow-common
+    mem_limit: 512m
     restart: on-failure
     depends_on:
       - airflow-init
@@ -191,6 +194,7 @@ services:
 
   airflow-worker:
     <<: *airflow-common
+    mem_limit: 512m
     restart: on-failure
     depends_on:
       - airflow-init
