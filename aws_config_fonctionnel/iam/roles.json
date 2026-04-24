@@ -1,0 +1,308 @@
+{
+    "Roles": [
+        {
+            "Path": "/aws-service-role/elasticfilesystem.amazonaws.com/",
+            "RoleName": "AWSServiceRoleForAmazonElasticFileSystem",
+            "RoleId": "AROAVUQKSYKJIH4LUTEPU",
+            "Arn": "arn:aws:iam::387642999442:role/aws-service-role/elasticfilesystem.amazonaws.com/AWSServiceRoleForAmazonElasticFileSystem",
+            "CreateDate": "2026-04-16T03:26:18+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "elasticfilesystem.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            },
+            "MaxSessionDuration": 3600
+        },
+        {
+            "Path": "/aws-service-role/ops.emr-serverless.amazonaws.com/",
+            "RoleName": "AWSServiceRoleForAmazonEMRServerless",
+            "RoleId": "AROAVUQKSYKJBOGQLHGEH",
+            "Arn": "arn:aws:iam::387642999442:role/aws-service-role/ops.emr-serverless.amazonaws.com/AWSServiceRoleForAmazonEMRServerless",
+            "CreateDate": "2026-04-16T03:26:13+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "ops.emr-serverless.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            },
+            "MaxSessionDuration": 3600
+        },
+        {
+            "Path": "/aws-service-role/mq.amazonaws.com/",
+            "RoleName": "AWSServiceRoleForAmazonMQ",
+            "RoleId": "AROAVUQKSYKJPYBJNTE3Y",
+            "Arn": "arn:aws:iam::387642999442:role/aws-service-role/mq.amazonaws.com/AWSServiceRoleForAmazonMQ",
+            "CreateDate": "2026-04-16T03:26:26+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "mq.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            },
+            "Description": "Allows Amazon MQ to call AWS services on your behalf",
+            "MaxSessionDuration": 3600
+        },
+        {
+            "Path": "/aws-service-role/autoscaling.amazonaws.com/",
+            "RoleName": "AWSServiceRoleForAutoScaling",
+            "RoleId": "AROAVUQKSYKJN7SGQRWCT",
+            "Arn": "arn:aws:iam::387642999442:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling",
+            "CreateDate": "2026-03-22T23:45:56+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "autoscaling.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            },
+            "Description": "Default Service-Linked Role enables access to AWS Services and Resources used or managed by Auto Scaling",
+            "MaxSessionDuration": 3600
+        },
+        {
+            "Path": "/aws-service-role/ec2-instance-connect.amazonaws.com/",
+            "RoleName": "AWSServiceRoleForEc2InstanceConnect",
+            "RoleId": "AROAVUQKSYKJE2T3TBVLG",
+            "Arn": "arn:aws:iam::387642999442:role/aws-service-role/ec2-instance-connect.amazonaws.com/AWSServiceRoleForEc2InstanceConnect",
+            "CreateDate": "2026-04-16T07:19:57+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "ec2-instance-connect.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            },
+            "Description": "The Service Linked Role used by EC2 Instance Connect Endpoint.",
+            "MaxSessionDuration": 3600
+        },
+        {
+            "Path": "/aws-service-role/elasticloadbalancing.amazonaws.com/",
+            "RoleName": "AWSServiceRoleForElasticLoadBalancing",
+            "RoleId": "AROAVUQKSYKJMXTFTYGB2",
+            "Arn": "arn:aws:iam::387642999442:role/aws-service-role/elasticloadbalancing.amazonaws.com/AWSServiceRoleForElasticLoadBalancing",
+            "CreateDate": "2026-02-03T10:43:16+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "elasticloadbalancing.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            },
+            "Description": "Allows ELB to call AWS services on your behalf.",
+            "MaxSessionDuration": 3600
+        },
+        {
+            "Path": "/aws-service-role/organizations.amazonaws.com/",
+            "RoleName": "AWSServiceRoleForOrganizations",
+            "RoleId": "AROAVUQKSYKJPELQKP7EY",
+            "Arn": "arn:aws:iam::387642999442:role/aws-service-role/organizations.amazonaws.com/AWSServiceRoleForOrganizations",
+            "CreateDate": "2026-04-13T05:08:06+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "organizations.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            },
+            "Description": "Service-linked role used by AWS Organizations to enable integration of other AWS services with Organizations.",
+            "MaxSessionDuration": 3600
+        },
+        {
+            "Path": "/aws-service-role/rds.amazonaws.com/",
+            "RoleName": "AWSServiceRoleForRDS",
+            "RoleId": "AROAVUQKSYKJP3DSWZJ2P",
+            "Arn": "arn:aws:iam::387642999442:role/aws-service-role/rds.amazonaws.com/AWSServiceRoleForRDS",
+            "CreateDate": "2026-04-16T03:26:18+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "rds.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            },
+            "Description": "Allows Amazon RDS to manage AWS resources on your behalf",
+            "MaxSessionDuration": 3600
+        },
+        {
+            "Path": "/aws-service-role/resource-explorer-2.amazonaws.com/",
+            "RoleName": "AWSServiceRoleForResourceExplorer",
+            "RoleId": "AROAVUQKSYKJALA35C5MY",
+            "Arn": "arn:aws:iam::387642999442:role/aws-service-role/resource-explorer-2.amazonaws.com/AWSServiceRoleForResourceExplorer",
+            "CreateDate": "2025-12-17T14:06:03+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "resource-explorer-2.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            },
+            "MaxSessionDuration": 3600
+        },
+        {
+            "Path": "/aws-service-role/support.amazonaws.com/",
+            "RoleName": "AWSServiceRoleForSupport",
+            "RoleId": "AROAVUQKSYKJODMPXYGOS",
+            "Arn": "arn:aws:iam::387642999442:role/aws-service-role/support.amazonaws.com/AWSServiceRoleForSupport",
+            "CreateDate": "2025-12-17T12:49:02+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "support.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            },
+            "Description": "Enables resource access for AWS to provide billing, administrative and support services",
+            "MaxSessionDuration": 3600
+        },
+        {
+            "Path": "/aws-service-role/trustedadvisor.amazonaws.com/",
+            "RoleName": "AWSServiceRoleForTrustedAdvisor",
+            "RoleId": "AROAVUQKSYKJNHFLLBP6C",
+            "Arn": "arn:aws:iam::387642999442:role/aws-service-role/trustedadvisor.amazonaws.com/AWSServiceRoleForTrustedAdvisor",
+            "CreateDate": "2025-12-17T12:49:02+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "trustedadvisor.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            },
+            "Description": "Access for the AWS Trusted Advisor Service to help reduce cost, increase performance, and improve security of your AWS environment.",
+            "MaxSessionDuration": 3600
+        },
+        {
+            "Path": "/",
+            "RoleName": "lakehouse-assurance-prod-etl-role",
+            "RoleId": "AROAVUQKSYKJKCLLEENPM",
+            "Arn": "arn:aws:iam::387642999442:role/lakehouse-assurance-prod-etl-role",
+            "CreateDate": "2026-04-19T10:50:47+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": [
+                                "ec2.amazonaws.com",
+                                "lambda.amazonaws.com",
+                                "ecs-tasks.amazonaws.com"
+                            ]
+                        },
+                        "Action": "sts:AssumeRole"
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "AWS": "arn:aws:iam::387642999442:root"
+                        },
+                        "Action": "sts:AssumeRole",
+                        "Condition": {
+                            "StringEquals": {
+                                "sts:ExternalId": "lakehouse-etl"
+                            }
+                        }
+                    }
+                ]
+            },
+            "MaxSessionDuration": 3600
+        },
+        {
+            "Path": "/",
+            "RoleName": "lakehouse-emr-serverless-execution-role",
+            "RoleId": "AROAVUQKSYKJP2ZAEQ47M",
+            "Arn": "arn:aws:iam::387642999442:role/lakehouse-emr-serverless-execution-role",
+            "CreateDate": "2026-04-19T23:26:14+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "emr-serverless.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            },
+            "MaxSessionDuration": 3600
+        },
+        {
+            "Path": "/service-role/",
+            "RoleName": "test-lambda-role-wcrhb57j",
+            "RoleId": "AROAVUQKSYKJO7IXZSDLJ",
+            "Arn": "arn:aws:iam::387642999442:role/service-role/test-lambda-role-wcrhb57j",
+            "CreateDate": "2026-04-24T00:54:44+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "lambda.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            },
+            "MaxSessionDuration": 3600
+        }
+    ]
+}

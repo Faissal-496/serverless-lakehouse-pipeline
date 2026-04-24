@@ -1,0 +1,52 @@
+{
+    "TargetGroups": [
+        {
+            "TargetGroupArn": "arn:aws:elasticloadbalancing:eu-west-3:387642999442:targetgroup/lakehouse-assura-airflow-tg/b8a27d97cc5927b5",
+            "TargetGroupName": "lakehouse-assura-airflow-tg",
+            "Protocol": "HTTP",
+            "Port": 8080,
+            "VpcId": "vpc-08f06ecb64edd8e6d",
+            "HealthCheckProtocol": "HTTP",
+            "HealthCheckPort": "traffic-port",
+            "HealthCheckEnabled": true,
+            "HealthCheckIntervalSeconds": 30,
+            "HealthCheckTimeoutSeconds": 5,
+            "HealthyThresholdCount": 2,
+            "UnhealthyThresholdCount": 3,
+            "HealthCheckPath": "/health",
+            "Matcher": {
+                "HttpCode": "200-399"
+            },
+            "LoadBalancerArns": [
+                "arn:aws:elasticloadbalancing:eu-west-3:387642999442:loadbalancer/app/lakehouse-assurance--alb/63fdef858a68c402"
+            ],
+            "TargetType": "instance",
+            "ProtocolVersion": "HTTP1",
+            "IpAddressType": "ipv4"
+        },
+        {
+            "TargetGroupArn": "arn:aws:elasticloadbalancing:eu-west-3:387642999442:targetgroup/lakehouse-assura-jenkins-tg/202919a8cb84e7e5",
+            "TargetGroupName": "lakehouse-assura-jenkins-tg",
+            "Protocol": "HTTP",
+            "Port": 9080,
+            "VpcId": "vpc-08f06ecb64edd8e6d",
+            "HealthCheckProtocol": "HTTP",
+            "HealthCheckPort": "traffic-port",
+            "HealthCheckEnabled": true,
+            "HealthCheckIntervalSeconds": 30,
+            "HealthCheckTimeoutSeconds": 5,
+            "HealthyThresholdCount": 2,
+            "UnhealthyThresholdCount": 3,
+            "HealthCheckPath": "/login",
+            "Matcher": {
+                "HttpCode": "200-399"
+            },
+            "LoadBalancerArns": [
+                "arn:aws:elasticloadbalancing:eu-west-3:387642999442:loadbalancer/app/lakehouse-assurance--alb/63fdef858a68c402"
+            ],
+            "TargetType": "instance",
+            "ProtocolVersion": "HTTP1",
+            "IpAddressType": "ipv4"
+        }
+    ]
+}

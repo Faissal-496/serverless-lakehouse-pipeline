@@ -1,0 +1,31 @@
+{
+    "CertificateSummaryList": [
+        {
+            "CertificateArn": "arn:aws:acm:eu-west-3:387642999442:certificate/cfeec122-c035-4209-b146-1c5a3969100a",
+            "DomainName": "octaa.tech",
+            "SubjectAlternativeNameSummaries": [
+                "octaa.tech",
+                "*.octaa.tech"
+            ],
+            "HasAdditionalSubjectAlternativeNames": false,
+            "Status": "ISSUED",
+            "Type": "AMAZON_ISSUED",
+            "KeyAlgorithm": "RSA-2048",
+            "KeyUsages": [
+                "DIGITAL_SIGNATURE",
+                "KEY_ENCIPHERMENT"
+            ],
+            "ExtendedKeyUsages": [
+                "TLS_WEB_SERVER_AUTHENTICATION"
+            ],
+            "ExportOption": "DISABLED",
+            "InUse": true,
+            "Exported": false,
+            "RenewalEligibility": "ELIGIBLE",
+            "NotBefore": "2026-04-16T02:00:00+02:00",
+            "NotAfter": "2026-10-31T00:59:59+01:00",
+            "CreatedAt": "2026-04-16T04:45:31.672000+02:00",
+            "IssuedAt": "2026-04-16T05:22:55.307000+02:00"
+        }
+    ]
+}

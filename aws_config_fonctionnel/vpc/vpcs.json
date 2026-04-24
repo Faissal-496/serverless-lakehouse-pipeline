@@ -1,0 +1,84 @@
+{
+    "Vpcs": [
+        {
+            "OwnerId": "387642999442",
+            "InstanceTenancy": "default",
+            "CidrBlockAssociationSet": [
+                {
+                    "AssociationId": "vpc-cidr-assoc-059cf965dd41c278a",
+                    "CidrBlock": "172.31.0.0/16",
+                    "CidrBlockState": {
+                        "State": "associated"
+                    }
+                }
+            ],
+            "IsDefault": true,
+            "BlockPublicAccessStates": {
+                "InternetGatewayBlockMode": "off"
+            },
+            "VpcId": "vpc-09f56d2f3c204d405",
+            "State": "available",
+            "CidrBlock": "172.31.0.0/16",
+            "DhcpOptionsId": "dopt-0a8ea0d48148637c5"
+        },
+        {
+            "OwnerId": "387642999442",
+            "InstanceTenancy": "default",
+            "CidrBlockAssociationSet": [
+                {
+                    "AssociationId": "vpc-cidr-assoc-04944fc9843c1cd74",
+                    "CidrBlock": "10.0.0.0/16",
+                    "CidrBlockState": {
+                        "State": "associated"
+                    }
+                }
+            ],
+            "IsDefault": false,
+            "Tags": [
+                {
+                    "Key": "Name",
+                    "Value": "lakehouse-assurance-prod-vpc"
+                },
+                {
+                    "Key": "Project",
+                    "Value": "lakehouse-assurance"
+                },
+                {
+                    "Key": "Environment",
+                    "Value": "prod"
+                },
+                {
+                    "Key": "CostCenter",
+                    "Value": "insurance-analytics"
+                },
+                {
+                    "Key": "Terraform",
+                    "Value": "true"
+                },
+                {
+                    "Key": "Confidential",
+                    "Value": "yes"
+                },
+                {
+                    "Key": "Owner",
+                    "Value": "data-platform"
+                },
+                {
+                    "Key": "ManagedBy",
+                    "Value": "Terraform"
+                },
+                {
+                    "Key": "Region",
+                    "Value": "eu-west-3"
+                }
+            ],
+            "BlockPublicAccessStates": {
+                "InternetGatewayBlockMode": "off"
+            },
+            "VpcId": "vpc-08f06ecb64edd8e6d",
+            "State": "available",
+            "CidrBlock": "10.0.0.0/16",
+            "DhcpOptionsId": "dopt-0a8ea0d48148637c5"
+        }
+    ]
+}

@@ -1,0 +1,204 @@
+{
+    "Reservations": [
+        {
+            "ReservationId": "r-06ab60736aa436af2",
+            "OwnerId": "387642999442",
+            "Groups": [],
+            "Instances": [
+                {
+                    "Architecture": "x86_64",
+                    "BlockDeviceMappings": [
+                        {
+                            "DeviceName": "/dev/sda1",
+                            "Ebs": {
+                                "AttachTime": "2026-04-19T10:51:11+00:00",
+                                "DeleteOnTermination": true,
+                                "Status": "attached",
+                                "VolumeId": "vol-06a82c6e0f844d3bd",
+                                "EbsCardIndex": 0
+                            }
+                        }
+                    ],
+                    "ClientToken": "terraform-2026041910511073520000000d",
+                    "EbsOptimized": false,
+                    "EnaSupport": true,
+                    "Hypervisor": "xen",
+                    "IamInstanceProfile": {
+                        "Arn": "arn:aws:iam::387642999442:instance-profile/lakehouse-assurance-prod-etl-profile",
+                        "Id": "AIPAVUQKSYKJLZ4Q7S64M"
+                    },
+                    "NetworkInterfaces": [
+                        {
+                            "Association": {
+                                "IpOwnerId": "amazon",
+                                "PublicDnsName": "ec2-35-180-38-117.eu-west-3.compute.amazonaws.com",
+                                "PublicIp": "35.180.38.117"
+                            },
+                            "Attachment": {
+                                "AttachTime": "2026-04-19T10:51:11+00:00",
+                                "AttachmentId": "eni-attach-0694c07790e1e2a37",
+                                "DeleteOnTermination": true,
+                                "DeviceIndex": 0,
+                                "Status": "attached",
+                                "NetworkCardIndex": 0
+                            },
+                            "Description": "",
+                            "Groups": [
+                                {
+                                    "GroupId": "sg-0f7d51b9b10625c1d",
+                                    "GroupName": "lakehouse-assurance-prod-app-sg"
+                                }
+                            ],
+                            "Ipv6Addresses": [],
+                            "MacAddress": "06:de:56:81:e3:c7",
+                            "NetworkInterfaceId": "eni-069500ffc4a6ff596",
+                            "OwnerId": "387642999442",
+                            "PrivateDnsName": "ip-10-0-1-134.eu-west-3.compute.internal",
+                            "PrivateIpAddress": "10.0.1.134",
+                            "PrivateIpAddresses": [
+                                {
+                                    "Association": {
+                                        "IpOwnerId": "amazon",
+                                        "PublicDnsName": "ec2-35-180-38-117.eu-west-3.compute.amazonaws.com",
+                                        "PublicIp": "35.180.38.117"
+                                    },
+                                    "Primary": true,
+                                    "PrivateDnsName": "ip-10-0-1-134.eu-west-3.compute.internal",
+                                    "PrivateIpAddress": "10.0.1.134"
+                                }
+                            ],
+                            "SourceDestCheck": true,
+                            "Status": "in-use",
+                            "SubnetId": "subnet-09052ce36c7bd18c0",
+                            "VpcId": "vpc-08f06ecb64edd8e6d",
+                            "InterfaceType": "interface",
+                            "Operator": {
+                                "Managed": false
+                            }
+                        }
+                    ],
+                    "RootDeviceName": "/dev/sda1",
+                    "RootDeviceType": "ebs",
+                    "SecurityGroups": [
+                        {
+                            "GroupId": "sg-0f7d51b9b10625c1d",
+                            "GroupName": "lakehouse-assurance-prod-app-sg"
+                        }
+                    ],
+                    "SourceDestCheck": true,
+                    "Tags": [
+                        {
+                            "Key": "Owner",
+                            "Value": "data-platform"
+                        },
+                        {
+                            "Key": "Terraform",
+                            "Value": "true"
+                        },
+                        {
+                            "Key": "Name",
+                            "Value": "lakehouse-assurance-prod-app-1"
+                        },
+                        {
+                            "Key": "Region",
+                            "Value": "eu-west-3"
+                        },
+                        {
+                            "Key": "CostCenter",
+                            "Value": "insurance-analytics"
+                        },
+                        {
+                            "Key": "Confidential",
+                            "Value": "yes"
+                        },
+                        {
+                            "Key": "Environment",
+                            "Value": "prod"
+                        },
+                        {
+                            "Key": "ManagedBy",
+                            "Value": "Terraform"
+                        },
+                        {
+                            "Key": "Project",
+                            "Value": "lakehouse-assurance"
+                        },
+                        {
+                            "Key": "Role",
+                            "Value": "lakehouse-app"
+                        }
+                    ],
+                    "VirtualizationType": "hvm",
+                    "CpuOptions": {
+                        "CoreCount": 1,
+                        "ThreadsPerCore": 2
+                    },
+                    "CapacityReservationSpecification": {
+                        "CapacityReservationPreference": "open"
+                    },
+                    "HibernationOptions": {
+                        "Configured": false
+                    },
+                    "MetadataOptions": {
+                        "State": "applied",
+                        "HttpTokens": "required",
+                        "HttpPutResponseHopLimit": 2,
+                        "HttpEndpoint": "enabled",
+                        "HttpProtocolIpv6": "disabled",
+                        "InstanceMetadataTags": "disabled"
+                    },
+                    "EnclaveOptions": {
+                        "Enabled": false
+                    },
+                    "BootMode": "uefi-preferred",
+                    "PlatformDetails": "Linux/UNIX",
+                    "UsageOperation": "RunInstances",
+                    "UsageOperationUpdateTime": "2026-04-19T10:51:11+00:00",
+                    "PrivateDnsNameOptions": {
+                        "HostnameType": "ip-name",
+                        "EnableResourceNameDnsARecord": false,
+                        "EnableResourceNameDnsAAAARecord": false
+                    },
+                    "MaintenanceOptions": {
+                        "AutoRecovery": "default",
+                        "RebootMigration": "default"
+                    },
+                    "CurrentInstanceBootMode": "uefi",
+                    "NetworkPerformanceOptions": {
+                        "BandwidthWeighting": "default"
+                    },
+                    "Operator": {
+                        "Managed": false
+                    },
+                    "InstanceId": "i-05af8bc02f2266899",
+                    "ImageId": "ami-0cc28c9caf9c41c2d",
+                    "State": {
+                        "Code": 16,
+                        "Name": "running"
+                    },
+                    "PrivateDnsName": "ip-10-0-1-134.eu-west-3.compute.internal",
+                    "PublicDnsName": "ec2-35-180-38-117.eu-west-3.compute.amazonaws.com",
+                    "StateTransitionReason": "",
+                    "KeyName": "lakehouse_assurance_prod",
+                    "AmiLaunchIndex": 0,
+                    "ProductCodes": [],
+                    "InstanceType": "t3.large",
+                    "LaunchTime": "2026-04-24T03:18:38+00:00",
+                    "Placement": {
+                        "AvailabilityZoneId": "euw3-az1",
+                        "GroupName": "",
+                        "Tenancy": "default",
+                        "AvailabilityZone": "eu-west-3a"
+                    },
+                    "Monitoring": {
+                        "State": "disabled"
+                    },
+                    "SubnetId": "subnet-09052ce36c7bd18c0",
+                    "VpcId": "vpc-08f06ecb64edd8e6d",
+                    "PrivateIpAddress": "10.0.1.134",
+                    "PublicIpAddress": "35.180.38.117"
+                }
+            ]
+        }
+    ]
+}
