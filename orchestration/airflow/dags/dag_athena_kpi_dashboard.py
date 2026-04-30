@@ -121,7 +121,7 @@ KPI_QUERIES = [
                 COUNT(*)                    AS nb_contracts,
                 ROUND(AVG(prmaco), 2)       AS avg_premium,
                 ROUND(SUM(prmaco), 2)       AS total_premium
-            FROM client_contrat_silver
+            FROM silver
             GROUP BY contrat_actif, etat_contrat_libelle
             ORDER BY nb_contracts DESC
         """,
@@ -136,7 +136,7 @@ KPI_QUERIES = [
                 cspsoc,
                 COUNT(*)                AS nb_contracts,
                 ROUND(AVG(prmaco), 2)   AS avg_premium
-            FROM client_contrat_silver
+            FROM silver
             WHERE contrat_actif = 1
             GROUP BY type_vehicule, cspsoc
             ORDER BY avg_premium DESC

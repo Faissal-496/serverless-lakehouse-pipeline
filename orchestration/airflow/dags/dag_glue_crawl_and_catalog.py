@@ -41,7 +41,7 @@ ALL_CRAWLERS = [BRONZE_CRAWLER, SILVER_CRAWLER, GOLD_CRAWLER]
 # Expected tables after crawling (table names as Glue infers them from S3 folders)
 EXPECTED_TABLES = {
     BRONZE_DB: ["client", "contrat1", "contrat2"],
-    SILVER_DB: ["client_contrat_silver"],
+    SILVER_DB: ["silver"],
     GOLD_DB: ["client_profile_analysis", "contract_analysis"],
 }
 

@@ -116,36 +116,36 @@ QUALITY_CHECKS = [
     {
         "check_name": "silver_record_count",
         "database": DB_SILVER,
-        "table": "client_contrat_silver",
-        "sql": "SELECT COUNT(*) AS row_count FROM client_contrat_silver",
+        "table": "silver",
+        "sql": "SELECT COUNT(*) AS row_count FROM silver",
         "eval_fn": lambda row: _eval_not_empty(row),
     },
     # ---- SILVER: NULL on nusoc (PK) ----
     {
         "check_name": "silver_null_nusoc",
         "database": DB_SILVER,
-        "table": "client_contrat_silver",
-        "sql": "SELECT COUNT(*) AS total, SUM(CASE WHEN nusoc IS NULL THEN 1 ELSE 0 END) AS null_count FROM client_contrat_silver",
+        "table": "silver",
+        "sql": "SELECT COUNT(*) AS total, SUM(CASE WHEN nusoc IS NULL THEN 1 ELSE 0 END) AS null_count FROM silver",
         "eval_fn": lambda row: _eval_null_rate(row, "nusoc"),
     },
     # ---- SILVER: NULL on nucon (contract key) ----
     {
         "check_name": "silver_null_nucon",
         "database": DB_SILVER,
-        "table": "client_contrat_silver",
-        "sql": "SELECT COUNT(*) AS total, SUM(CASE WHEN nucon IS NULL THEN 1 ELSE 0 END) AS null_count FROM client_contrat_silver",
+        "table": "silver",
+        "sql": "SELECT COUNT(*) AS total, SUM(CASE WHEN nucon IS NULL THEN 1 ELSE 0 END) AS null_count FROM silver",
         "eval_fn": lambda row: _eval_null_rate(row, "nucon"),
     },
     # ---- SILVER: duplicate (nusoc, nucon) pairs ----
     {
         "check_name": "silver_duplicate_keys",
         "database": DB_SILVER,
-        "table": "client_contrat_silver",
+        "table": "silver",
         "sql": """
             SELECT
                 COUNT(*) AS total_rows,
                 COUNT(*) - COUNT(DISTINCT CONCAT(CAST(nusoc AS VARCHAR), '-', CAST(nucon AS VARCHAR))) AS duplicate_count
-            FROM client_contrat_silver
+            FROM silver
         """,
         "eval_fn": lambda row: _eval_no_duplicates(row),
     },
@@ -153,16 +153,16 @@ QUALITY_CHECKS = [
     {
         "check_name": "silver_negative_premium",
         "database": DB_SILVER,
-        "table": "client_contrat_silver",
-        "sql": "SELECT COUNT(*) AS neg_count FROM client_contrat_silver WHERE prmaco <= 0",
+        "table": "silver",
+        "sql": "SELECT COUNT(*) AS neg_count FROM silver WHERE prmaco <= 0",
         "eval_fn": lambda row: _eval_no_negative_premium(row),
     },
     # ---- SILVER: age plausibility ----
     {
         "check_name": "silver_age_plausibility",
         "database": DB_SILVER,
-        "table": "client_contrat_silver",
-        "sql": "SELECT COUNT(*) AS out_of_range FROM client_contrat_silver WHERE age_client < 18 OR age_client > 100",
+        "table": "silver",
+        "sql": "SELECT COUNT(*) AS out_of_range FROM silver WHERE age_client < 18 OR age_client > 100",
         "eval_fn": lambda row: _eval_age_plausibility(row),
     },
     # ---- GOLD: contract_analysis record count ----
