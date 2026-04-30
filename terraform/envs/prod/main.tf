@@ -337,3 +337,24 @@ module "alb" {
 
   tags = local.common_tags
 }
+
+# ==========================================================================
+# GLUE CATALOG + ATHENA WORKGROUP
+# ==========================================================================
+
+module "glue_catalog" {
+  source = "../../modules/glue_catalog"
+
+  name_prefix    = local.name_prefix
+  db_name_prefix = var.glue_db_name_prefix
+  s3_bucket_name = var.s3_bucket_name
+  region         = local.region
+  account_id     = local.account_id
+  ec2_role_name  = module.iam_roles.instance_profile_role_name
+
+  crawler_schedule            = var.glue_crawler_schedule
+  athena_workgroup_name       = var.athena_workgroup_name
+  athena_bytes_scanned_cutoff = var.athena_bytes_scanned_cutoff
+
+  tags = local.common_tags
+}

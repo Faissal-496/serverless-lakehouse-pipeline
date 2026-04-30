@@ -2,7 +2,7 @@
 Data Lineage Tracking
 =====================
 Records input/output relationships, transformations, and row counts
-across the Bronze → Silver → Gold pipeline.
+across the Bronze to Silver to Gold pipeline.
 
 Enhancements over v1.0.0
 -------------------------
@@ -20,7 +20,7 @@ from lakehouse.monitoring.logging import logger
 
 
 class LineageEvent:
-    """Immutable record of a single source → target data movement."""
+    """Immutable record of a single source to target data movement."""
 
     __slots__ = (
         "timestamp",
@@ -103,7 +103,7 @@ class LineageTracker:
 
 
 def log_lineage(source: str, target: str, rows: int) -> None:
-    """Log a simple source→target lineage entry (v1 API)."""
+    """Log a simple source-to-target lineage entry (v1 API)."""
     timestamp = datetime.now(timezone.utc).isoformat()
     logger.info(
         f"LINEAGE | Timestamp: {timestamp} | Source: {source} -> Target: {target} | Rows: {rows}",

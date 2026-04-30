@@ -99,11 +99,20 @@ pipeline {
             }
             steps {
                 sh '''
-                    pip install \
-                        pytest==7.4.3 pyyaml==6.0.1 python-dotenv==1.0.0 \
-                        tenacity==8.2.3 boto3 python-json-logger==2.0.7
-                    PYTHONPATH=src pytest -q tests/
+                    apt-get update -qq && \
+                        apt-get install -y --no-install-recommends default-jre-headless -qq
+                    pip install --quiet -r requirements/dev.txt
+                    JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+                    export JAVA_HOME
+                    PYTHONPATH=src pytest -v --tb=short --no-header \
+                        -p no:cacheprovider tests/
                 '''
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true,
+                          testResults: 'test-results/*.xml'
+                }
             }
         }
 
@@ -112,15 +121,7 @@ pipeline {
         // ====================================================================
         stage('Build & Push Images') {
             when {
-                allOf {
-                    expression { return params.BUILD_IMAGES }
-                    anyOf {
-                        changeset 'docker/**'
-                        changeset 'src/**'
-                        changeset 'requirements.txt'
-                        changeset 'requirements/**'
-                    }
-                }
+                expression { return params.BUILD_IMAGES }
             }
             agent { label 'docker-agent' }
             steps {

@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
-# ============================================================================
 # ship-logs-to-s3.sh — Sync Docker & Jenkins logs to S3
 # Intended to run via cron on the EC2 host:
 #   */30 * * * * /opt/serverless-lakehouse-pipeline/ci/ship-logs-to-s3.sh
-# ============================================================================
 set -euo pipefail
 
 BUCKET="${S3_BUCKET:-lakehouse-assurance-prod-data}"

@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# =============================================================================
 # Setup IAM role for EMR Serverless execution
 # Usage: ./scripts/emr/setup_emr_iam.sh
-# =============================================================================
 set -euo pipefail
 
 AWS_REGION="${AWS_DEFAULT_REGION:-eu-west-3}"

@@ -1,7 +1,5 @@
 #!/bin/bash
-# =============================================================================
 # Lakehouse Platform - Deployment Script
-# =============================================================================
 # Usage: ./deploy.sh [component] [action]
 #
 # Components: all | jenkins | airflow | spark | git-sync
@@ -11,7 +9,6 @@
 #   ./deploy.sh all deploy       # Full deployment (pull + rebuild + restart)
 #   ./deploy.sh jenkins rebuild  # Rebuild only Jenkins
 #   ./deploy.sh all status       # Show status of all services
-# =============================================================================
 
 set -euo pipefail
 

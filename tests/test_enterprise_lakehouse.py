@@ -16,18 +16,23 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Try to import Spark
+# Try to import Spark — fail hard if not available so tests error rather than skip
 try:
     from pyspark.sql import SparkSession
 
     SPARK_AVAILABLE = True
-    spark = SparkSession.builder.appName("LakehouseTests").master("local[*]").getOrCreate()
-except ImportError:
-    SPARK_AVAILABLE = False
-    spark = None
-    logger.warning("PySpark not installed — Spark tests will be skipped")
-
-pytestmark = pytest.mark.skipif(not SPARK_AVAILABLE, reason="PySpark not installed")
+    spark = (
+        SparkSession.builder.appName("LakehouseTests")
+        .master("local[*]")
+        .config("spark.ui.enabled", "false")
+        .config("spark.sql.shuffle.partitions", "2")
+        .getOrCreate()
+    )
+    spark.sparkContext.setLogLevel("ERROR")
+except ImportError as e:
+    raise ImportError(
+        "PySpark is required for tests. Install with: pip install pyspark==3.5.0"
+    ) from e
 
 
 class TestDataQualityFramework:
@@ -139,21 +144,15 @@ class TestAWSIntegration:
     def test_glue_catalog_manager_initialization(self):
         from lakehouse.utils.aws_integration import GlueCatalogManager
 
-        try:
-            manager = GlueCatalogManager(region_name="eu-west-3")
-            assert manager.region == "eu-west-3"
-        except Exception:
-            pytest.skip("AWS credentials needed")
+        manager = GlueCatalogManager(region_name="eu-west-3")
+        assert manager.region == "eu-west-3"
 
     def test_cloudwatch_monitoring_initialization(self):
         from lakehouse.utils.aws_integration import CloudWatchMonitoring
 
-        try:
-            monitoring = CloudWatchMonitoring(region_name="eu-west-3")
-            assert monitoring.region == "eu-west-3"
-            assert monitoring.namespace == "LakehouseMetrics"
-        except Exception:
-            pytest.skip("AWS credentials needed")
+        monitoring = CloudWatchMonitoring(region_name="eu-west-3")
+        assert monitoring.region == "eu-west-3"
+        assert monitoring.namespace == "LakehouseMetrics"
 
 
 class TestDataLakePipeline:

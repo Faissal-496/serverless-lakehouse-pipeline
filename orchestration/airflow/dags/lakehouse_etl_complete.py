@@ -11,9 +11,7 @@ from airflow.operators.bash import BashOperator
 from airflow.operators.empty import EmptyOperator
 import os
 
-# ==============================================================================
 # Configuration — single source of truth
-# ==============================================================================
 
 SPARK_MODE = os.getenv("SPARK_MODE", "standalone")  # standalone | emr-serverless
 
@@ -149,9 +147,7 @@ def _emr_serverless_cmd(job_script: str) -> str:
     """
 
 
-# ==============================================================================
 # DAG
-# ==============================================================================
 
 dag = DAG(
     "lakehouse_etl_complete",

@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
-# =============================================================================
 # Submit a Spark job to EMR Serverless
 # Usage: ./scripts/emr/submit_job.sh <job_module> [execution_date]
 # Example: ./scripts/emr/submit_job.sh lakehouse/jobs/bronze_ingest_job.py 2026-01-15
-# =============================================================================
 set -euo pipefail
 
 JOB_SCRIPT="${1:?Usage: submit_job.sh <job_script> [execution_date]}"

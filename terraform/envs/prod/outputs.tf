@@ -48,3 +48,28 @@ output "secrets_jenkins_arn" {
   description = "Secrets Manager ARN for Jenkins secret"
   value       = module.secrets.jenkins_secret_arn
 }
+
+output "glue_bronze_database" {
+  description = "Glue Catalog database for Bronze layer"
+  value       = module.glue_catalog.bronze_database_name
+}
+
+output "glue_silver_database" {
+  description = "Glue Catalog database for Silver layer"
+  value       = module.glue_catalog.silver_database_name
+}
+
+output "glue_gold_database" {
+  description = "Glue Catalog database for Gold layer"
+  value       = module.glue_catalog.gold_database_name
+}
+
+output "athena_workgroup" {
+  description = "Athena Workgroup name for Lakehouse SQL queries"
+  value       = module.glue_catalog.athena_workgroup_name
+}
+
+output "athena_results_path" {
+  description = "S3 path where Athena query results are stored"
+  value       = module.glue_catalog.athena_results_s3_path
+}

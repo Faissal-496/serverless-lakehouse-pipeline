@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# =============================================================================
 # Setup CloudWatch Dashboard, Alarms, and SNS Alerting for Lakehouse ETL
 # Usage: ./scripts/monitoring/setup_cloudwatch.sh
-# =============================================================================
 set -euo pipefail
 
 AWS_REGION="${AWS_DEFAULT_REGION:-eu-west-3}"
@@ -15,9 +13,7 @@ echo "==> Setting up CloudWatch monitoring for Lakehouse ETL"
 echo "    Region: ${AWS_REGION}"
 echo "    Alert email: ${ALERT_EMAIL}"
 
-# ============================================================================
 # 1. Create SNS Topic for alerts
-# ============================================================================
 echo "==> Creating SNS topic: lakehouse-etl-alerts"
 TOPIC_ARN=$(aws sns create-topic \
   --name lakehouse-etl-alerts \
@@ -37,9 +33,7 @@ aws sns subscribe \
 
 echo "    Subscribed: ${ALERT_EMAIL} (check inbox to confirm)"
 
-# ============================================================================
 # 2. Create CloudWatch Log Groups
-# ============================================================================
 for LOG_GROUP in /lakehouse/etl/jobs /lakehouse/emr-serverless /lakehouse/airflow /lakehouse/jenkins; do
   aws logs create-log-group \
     --log-group-name "${LOG_GROUP}" \
@@ -54,9 +48,7 @@ for LOG_GROUP in /lakehouse/etl/jobs /lakehouse/emr-serverless /lakehouse/airflo
 done
 echo "==> Log groups created with 30-day retention"
 
-# ============================================================================
 # 3. Create CloudWatch Alarms
-# ============================================================================
 
 # Alarm: EMR Serverless job failure
 echo "==> Creating alarm: lakehouse-emr-job-failure"
@@ -112,9 +104,7 @@ aws cloudwatch put-metric-alarm \
 
 echo "==> Alarms created"
 
-# ============================================================================
 # 4. Create CloudWatch Dashboard
-# ============================================================================
 echo "==> Creating CloudWatch dashboard: lakehouse-etl"
 
 DASHBOARD_BODY=$(cat <<'DASHBOARD_JSON'

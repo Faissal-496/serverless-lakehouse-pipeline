@@ -10,9 +10,7 @@ from lakehouse.utils.helpers import safe_divide
 
 import time
 
-# ============================================================================
 # BUSINESS METRICS
-# ============================================================================
 
 
 def retention_rate(df: DataFrame, active_col: str = "contrat_actif") -> float:
@@ -27,9 +25,7 @@ def market_share(df: DataFrame, active_col: str = "contrat_actif") -> float:
     return safe_divide(active, total) * 100
 
 
-# ============================================================================
 # PROMETHEUS METRICS — conditional import with no-op fallback
-# ============================================================================
 
 try:
     from prometheus_client import Counter, Gauge, Histogram, generate_latest
@@ -137,9 +133,7 @@ spark_tasks_failed = Counter(
 )
 
 
-# ============================================================================
 # CONTEXT MANAGERS
-# ============================================================================
 
 
 class JobMetricsContext:
@@ -182,9 +176,7 @@ class S3OperationMetricsContext:
         return False
 
 
-# ============================================================================
 # HELPERS
-# ============================================================================
 
 
 def record_rows_processed(layer: str, dataset: str, count: int):

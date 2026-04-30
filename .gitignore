@@ -38,21 +38,24 @@ data/
 *.tfstate.*
 *.tfvars
 *.tfplan
-.terraform.lock.hcl
+tfplan
+tfplan_*
+**/.terraform.lock.hcl
 backend.hcl
 
 # Secrets (CRITIQUE)
 les_credentials.txt
+tf_outputs.json
+.env.docker
 
 # Tests locaux
 test_connectivity.py
 test_deployement.py
 
-# other files to ignore
-docs/*.md
-*.md# Analysis reports and benchmarks (not committed per user request)
+# Other files to ignore
+docs/*
+*.md
 Analysis/
-.env.docker
 docker-compose-local-ha.yml
 
 # Package build artifacts

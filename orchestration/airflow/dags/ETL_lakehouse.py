@@ -40,9 +40,7 @@ from lakehouse.operators.spark_job_operator import SparkJobOperator
 
 _dag_log = logging.getLogger(__name__)
 
-# ============================================================================
 # Global configuration -- single source of truth (EMR Serverless only)
-# ============================================================================
 
 S3_BUCKET: str = os.getenv("S3_BUCKET", "lakehouse-assurance-prod-data")
 AWS_REGION: str = os.getenv("AWS_DEFAULT_REGION", "eu-west-3")
@@ -85,9 +83,7 @@ BRONZE_DATASET = Dataset(f"s3://{S3_BUCKET}/bronze/")
 SILVER_DATASET = Dataset(f"s3://{S3_BUCKET}/silver/")
 GOLD_DATASET = Dataset(f"s3://{S3_BUCKET}/gold/")
 
-# ============================================================================
 # Job script mapping -- layer -> S3 entry-point for EMR Serverless
-# ============================================================================
 
 JOB_SCRIPTS: Dict[str, Dict[str, str]] = {
     "bronze": {
@@ -105,9 +101,7 @@ JOB_SCRIPTS: Dict[str, Dict[str, str]] = {
 }
 
 
-# ============================================================================
 # Utility functions
-# ============================================================================
 
 
 def load_dataset_configs() -> Dict[str, Dict[str, Any]]:
@@ -211,9 +205,7 @@ def build_spark_task(
     )
 
 
-# ============================================================================
 # Quality-check callable (used with PythonOperator)
-# ============================================================================
 
 
 def _run_quality_check(
@@ -311,9 +303,7 @@ def _run_quality_check(
         )
 
 
-# ============================================================================
 # Failure callback — SNS alert
-# ============================================================================
 
 
 def _on_failure_callback(context: Dict[str, Any]) -> None:
@@ -347,9 +337,7 @@ def _on_failure_callback(context: Dict[str, Any]) -> None:
         logging.getLogger("airflow.task").warning("SNS alert failed: %s", err)
 
 
-# ============================================================================
 # Load configs at DAG-parse time
-# ============================================================================
 
 DATASET_CONFIGS = load_dataset_configs()
 SPARK_CONFIG = load_spark_config()
@@ -361,9 +349,7 @@ SILVER_DATASETS = {k: v for k, v in DATASET_CONFIGS.items() if v.get("layer") ==
 GOLD_DATASETS = {k: v for k, v in DATASET_CONFIGS.items() if v.get("layer") == "gold"}
 
 
-# ============================================================================
 # DAG definition
-# ============================================================================
 
 default_args = {
     "owner": "lakehouse-team",
@@ -384,15 +370,11 @@ with DAG(
     default_args=default_args,
     doc_md=__doc__,
 ) as dag:
-    # ------------------------------------------------------------------
     # Bookend tasks
-    # ------------------------------------------------------------------
     start = EmptyOperator(task_id="pipeline_start")
     end = EmptyOperator(task_id="pipeline_end", trigger_rule="none_failed_min_one_success")
 
-    # ==================================================================
     # DATA READINESS — S3 sensors for each bronze raw file
-    # ==================================================================
     with TaskGroup("data_readiness", dag=dag) as tg_sensors:
         sensor_tasks = []
         for ds_name, ds_cfg in BRONZE_DATASETS.items():
@@ -410,9 +392,7 @@ with DAG(
             )
             sensor_tasks.append(sensor)
 
-    # ==================================================================
     # BRONZE — ingest raw CSVs to Parquet
-    # ==================================================================
     with TaskGroup("bronze", dag=dag) as tg_bronze:
         bronze_job = build_spark_task(
             job_name=JOB_SCRIPTS["bronze"]["job_name"],
@@ -446,9 +426,7 @@ with DAG(
 
         bronze_job >> bronze_dq_tasks  # type: ignore[operator]
 
-    # ==================================================================
-    # SILVER — transform bronze → silver
-    # ==================================================================
+    # SILVER — transform bronze  silver
     with TaskGroup("silver", dag=dag) as tg_silver:
         silver_job = build_spark_task(
             job_name=JOB_SCRIPTS["silver"]["job_name"],
@@ -482,9 +460,7 @@ with DAG(
 
         silver_job >> silver_dq_tasks  # type: ignore[operator]
 
-    # ==================================================================
     # GOLD — analytics-ready aggregations
-    # ==================================================================
     with TaskGroup("gold", dag=dag) as tg_gold:
         gold_job = build_spark_task(
             job_name=JOB_SCRIPTS["gold"]["job_name"],
@@ -521,16 +497,14 @@ with DAG(
 
         gold_job >> gold_dq_tasks  # type: ignore[operator]
 
-    # ==================================================================
     # LINEAGE — record layer transitions
-    # ==================================================================
 
     def _record_lineage(**context: Any) -> None:
         from lakehouse.lineage.lineage import LineageTracker
 
         tracker = LineageTracker()
 
-        # Bronze ← RAW
+        # Bronze  RAW
         for ds_name in BRONZE_DATASETS:
             tracker.record(
                 source_datasets=[f"s3://{S3_BUCKET}/RAW/{ds_name}.csv"],
@@ -539,7 +513,7 @@ with DAG(
                 layer="bronze",
             )
 
-        # Silver ← Bronze
+        # Silver  Bronze
         for ds_name, ds_cfg in SILVER_DATASETS.items():
             upstream = ds_cfg.get("upstream_datasets", [])
             tracker.record(
@@ -549,7 +523,7 @@ with DAG(
                 layer="silver",
             )
 
-        # Gold ← Silver
+        # Gold  Silver
         for ds_name, ds_cfg in GOLD_DATASETS.items():
             if ds_name == "kpi_final":
                 continue
@@ -570,7 +544,5 @@ with DAG(
         trigger_rule="none_failed_min_one_success",
     )
 
-    # ==================================================================
     # Dependency wiring
-    # ==================================================================
     start >> tg_sensors >> tg_bronze >> tg_silver >> tg_gold >> record_lineage >> end

@@ -333,3 +333,31 @@ variable "sns_topic_arn" {
   description = "SNS topic ARN for ETL alerts"
   default     = ""
 }
+
+# ============================================================================
+# GLUE CATALOG + ATHENA
+# ============================================================================
+
+variable "glue_db_name_prefix" {
+  type        = string
+  description = "Prefix for Glue database names. Creates: <prefix>_bronze, <prefix>_silver, <prefix>_gold"
+  default     = "lakehouse"
+}
+
+variable "glue_crawler_schedule" {
+  type        = string
+  description = "Cron schedule for Glue Crawlers in Glue format. Default: daily at 03:30 UTC (after ETL at 02:00)."
+  default     = "cron(30 3 * * ? *)"
+}
+
+variable "athena_workgroup_name" {
+  type        = string
+  description = "Name of the Athena Workgroup for Lakehouse queries"
+  default     = "lakehouse"
+}
+
+variable "athena_bytes_scanned_cutoff" {
+  type        = number
+  description = "Safety limit: max bytes scanned per Athena query (default 10 GB)"
+  default     = 10737418240
+}

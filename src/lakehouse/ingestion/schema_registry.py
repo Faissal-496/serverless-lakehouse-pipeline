@@ -7,9 +7,7 @@ from pyspark.sql.types import (
     DoubleType,
 )
 
-# -----------------------------
 # Schéma Bronze pour Contrat2
-# -----------------------------
 # Les champs sont permissifs (nullable=True) car Bronze est la couche raw
 CONTRAT2_SCHEMA = StructType(
     [
@@ -83,16 +81,12 @@ CONTRAT2_SCHEMA = StructType(
     ]
 )
 
-# ====================================================================
 # CONTRAT1_SCHEMA: Same structure as CONTRAT2_SCHEMA for union
-# ====================================================================
 # CONTRAT1 and CONTRAT2 use identical schema structure for union compatibility.
 # If different in production, create a separate schema and use schema mapping.
 CONTRAT1_SCHEMA = CONTRAT2_SCHEMA
 
-# =====================================================
 # Schéma Bronze pour Client
-# =====================================================
 CLIENT_SCHEMA = StructType(
     [
         StructField("nusoc", IntegerType(), True),  # Identifiant unique sociétaire

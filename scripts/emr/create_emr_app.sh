@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# =============================================================================
 # Create / update EMR Serverless application for Lakehouse ETL
 # Usage: ./scripts/emr/create_emr_app.sh
-# =============================================================================
 set -euo pipefail
 
 AWS_REGION="${AWS_DEFAULT_REGION:-eu-west-3}"
