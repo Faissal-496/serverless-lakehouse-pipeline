@@ -8,7 +8,6 @@ import sys
 import os
 import logging
 from datetime import datetime
-import pytest
 
 # Ensure lakehouse package is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -30,9 +29,7 @@ try:
     )
     spark.sparkContext.setLogLevel("ERROR")
 except ImportError as e:
-    raise ImportError(
-        "PySpark is required for tests. Install with: pip install pyspark==3.5.0"
-    ) from e
+    raise ImportError("PySpark is required for tests. Install with: pip install pyspark==3.5.0") from e
 
 
 class TestDataQualityFramework:
