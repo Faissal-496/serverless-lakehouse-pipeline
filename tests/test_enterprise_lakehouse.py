@@ -8,7 +8,6 @@ import sys
 import os
 import logging
 from datetime import datetime
-import pytest
 
 # Ensure lakehouse package is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -16,25 +15,30 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Try to import Spark — skip Spark tests gracefully when pyspark is unavailable
+# PySpark is a hard dependency for these tests.
+# The CI agent (docker/jenkins-agent/Dockerfile) installs Spark 3.5.0 + pyspark==3.5.0.
+# If pyspark is absent, test collection fails immediately with a clear error.
 try:
     from pyspark.sql import SparkSession
 
-    SPARK_AVAILABLE = True
     spark = (
         SparkSession.builder.appName("LakehouseTests")
-        .master("local[*]")
+        .master("local[2]")
         .config("spark.ui.enabled", "false")
         .config("spark.sql.shuffle.partitions", "2")
+        .config("spark.driver.memory", "512m")
+        .config("spark.executor.memory", "512m")
+        .config("spark.driver.bindAddress", "127.0.0.1")
         .getOrCreate()
     )
     spark.sparkContext.setLogLevel("ERROR")
-except ImportError:
-    SPARK_AVAILABLE = False
-    spark = None
+except ImportError as e:
+    raise ImportError(
+        "PySpark is required. The CI agent image installs pyspark==3.5.0 with "
+        "Python 3.11. For local dev: pip install pyspark==3.5.0"
+    ) from e
 
 
-@pytest.mark.skipif(not SPARK_AVAILABLE, reason="PySpark not available in this environment")
 class TestDataQualityFramework:
     """Test data quality validation rules."""
 
@@ -86,7 +90,6 @@ class TestDataQualityFramework:
         assert results["checks"]["duplicates"]["duplicates"] == 1
 
 
-@pytest.mark.skipif(not SPARK_AVAILABLE, reason="PySpark not available in this environment")
 class TestPartitioningStrategy:
     """Test S3 partitioning logic."""
 
@@ -156,7 +159,6 @@ class TestAWSIntegration:
         assert monitoring.namespace == "LakehouseMetrics"
 
 
-@pytest.mark.skipif(not SPARK_AVAILABLE, reason="PySpark not available in this environment")
 class TestDataLakePipeline:
     """Integration tests for complete data lake pipeline."""
 
