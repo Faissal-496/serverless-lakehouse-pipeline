@@ -17,7 +17,7 @@ class PartitioningStrategy:
     """Implements standardized S3 partitioning schemas."""
 
     # Standard partition paths for bronze/silver/gold (using s3a:// for Spark compatibility)
-    BRONZE_PARTITION_TEMPLATE = "s3a://lakehouse/{environment}/{dataset}/year={year}/month={month}/day={day}/"
+    BRONZE_PARTITION_TEMPLATE = "s3a://lakehouse/{environment}/bronze/{dataset}/year={year}/month={month}/day={day}/"
     SILVER_PARTITION_TEMPLATE = "s3a://lakehouse/{environment}/silver/{dataset}/year={year}/month={month}/day={day}/"
     GOLD_PARTITION_TEMPLATE = (
         "s3a://lakehouse/{environment}/gold/{aggregation_level}" "/{dataset}/year={year}/month={month}/day={day}/"
