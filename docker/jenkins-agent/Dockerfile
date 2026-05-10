@@ -16,19 +16,13 @@ ENV SPARK_HOME=/opt/spark \
 ENV PATH="${SPARK_HOME}/bin:${PATH}"
 
 # ── 1. System dependencies + Docker CLI ──────────────────────────────────────
+# docker.io from Debian main repos: simpler, no external repo setup needed,
+# provides docker CLI (login, build, push) fully sufficient for CI.
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
         ca-certificates curl gnupg lsb-release \
-        software-properties-common wget procps git && \
-    install -m 0755 -d /etc/apt/keyrings && \
-    OS_ID=$(. /etc/os-release && echo "$ID") && \
-    curl -fsSL "https://download.docker.com/linux/${OS_ID}/gpg" \
-        | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-        https://download.docker.com/linux/${OS_ID} $(lsb_release -cs) stable" \
-        > /etc/apt/sources.list.d/docker.list && \
-    apt-get update -qq && \
-    apt-get install -y --no-install-recommends docker-ce-cli && \
+        software-properties-common wget procps git \
+        docker.io && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ── 2. Python 3.11 (explicit pin — Spark 3.5.0 NOT compatible with Python 3.12/3.13) ─
